@@ -14,7 +14,7 @@ abstract class AbstractFileVoter extends Voter
     protected function supports(string $attribute, $subject): bool
     {
         // Le subject doit être un tableau [domain, id]
-        return in_array($attribute, [self::VIEW, self::EDIT])
+        return in_array($attribute, [self::VIEW, self::EDIT, self::DELETE])
             && is_array($subject)
             && 2 === count($subject);
     }
