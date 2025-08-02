@@ -4,7 +4,6 @@ namespace Bnine\FilesBundle\Controller;
 
 use Bnine\FilesBundle\Security\AbstractFileVoter;
 use Bnine\FilesBundle\Service\FileService;
-use Oneup\UploaderBundle\Uploader\Response\ResponseInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -22,7 +21,7 @@ class FileController extends AbstractController
         $this->fileService = $fileService;
     }
 
-    #[Route('/bninefile/list/{domain}/{id}/{editable}', name: 'bninefiles_files', methods: ['GET'])]
+    #[Route('/list/{domain}/{id}/{editable}', name: 'bninefiles_files', methods: ['GET'])]
     public function browse(string $domain, int $id, int $editable, Request $request): Response
     {
         $this->denyAccessUnlessGranted($editable ? AbstractFileVoter::EDIT : AbstractFileVoter::VIEW, [$domain, $id]);
@@ -51,7 +50,7 @@ class FileController extends AbstractController
         }
     }
 
-    #[Route('/bninefile/uploadmodal/{domain}/{id}', name: 'bninefiles_files_uploadmodal', methods: ['GET'])]
+    #[Route('/uploadmodal/{domain}/{id}', name: 'bninefiles_files_uploadmodal', methods: ['GET'])]
     public function uploadmodal(string $domain, int $id, Request $request): Response
     {
         $this->denyAccessUnlessGranted(AbstractFileVoter::EDIT, [$domain, $id]);
@@ -69,11 +68,11 @@ class FileController extends AbstractController
         ]);
     }
 
-    #[Route('/bninefile/uploadfile', name: 'bninefiles_files_uploadfile', methods: ['POST'])]
-    public function upload(Request $request): Response|ResponseInterface
+    #[Route('/uploadfile', name: 'bninefiles_files_uploadfile', methods: ['POST'])]
+    public function upload(Request $request): JsonResponse
     {
         /** @var UploadedFile $file */
-        $file = $request->files->get('file');
+        $file = $request->files->get('bninefile');
         $domain = $request->query->get('domain');
         $id = $request->query->get('id');
         $relativePath = $request->query->get('path', '');
@@ -81,7 +80,7 @@ class FileController extends AbstractController
         $this->denyAccessUnlessGranted(AbstractFileVoter::EDIT, [$domain, $id]);
 
         if (!$file || !$domain || !$id) {
-            return new Response('Invalid parameters', 400);
+            return new JsonResponse('Invalid parameters', 400);
         }
 
         $baseDir = $this->getParameter('kernel.project_dir').'/uploads/'.$domain.'/'.$id.'/'.ltrim($relativePath, '/');
@@ -96,7 +95,7 @@ class FileController extends AbstractController
         return new JsonResponse(['success' => true]);
     }
 
-    #[Route('/bninefile/delete/{domain}/{id}', name: 'bninefiles_files_delete', methods: ['POST'])]
+    #[Route('/delete/{domain}/{id}', name: 'bninefiles_files_delete', methods: ['POST'])]
     public function delete(string $domain, int $id, Request $request): JsonResponse
     {
         $this->denyAccessUnlessGranted(AbstractFileVoter::DELETE, [$domain, $id]);
@@ -117,7 +116,7 @@ class FileController extends AbstractController
         }
     }
 
-    #[Route('/bninefile/mkdir/{domain}/{id}', name: 'bninefiles_files_mkdir', methods: ['POST'])]
+    #[Route('/mkdir/{domain}/{id}', name: 'bninefiles_files_mkdir', methods: ['POST'])]
     public function mkdir(string $domain, int $id, Request $request, FileService $fileService): JsonResponse
     {
         $this->denyAccessUnlessGranted(AbstractFileVoter::EDIT, [$domain, $id]);
@@ -140,7 +139,7 @@ class FileController extends AbstractController
         }
     }
 
-    #[Route('/bninefile/download/{domain}/{id}', name: 'bninefiles_files_download', methods: ['GET'])]
+    #[Route('/download/{domain}/{id}', name: 'bninefiles_files_download', methods: ['GET'])]
     public function download(Request $request, string $domain, int $id): Response
     {
         $this->denyAccessUnlessGranted(AbstractFileVoter::VIEW, [$domain, $id]);
