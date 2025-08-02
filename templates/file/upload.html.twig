@@ -1,0 +1,45 @@
+{% extends 'base.html.twig' %}
+
+{% block localstyle %}
+    <style>
+        body {
+            background-color: transparent;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <a class="btn btn-secondary" onClick="closeModal();">Annuler</a>
+    <form action="{{ path('bninefiles_files_uploadfile', {
+        domain: domain,
+        id: id,
+        path: path
+    }) }}"
+    class="dropzone" id="myDropzone" style="margin-top:10px"></form>
+{% endblock %}
+
+{% block localscript %}
+    <script>
+        Dropzone.options.myDropzone = {
+            paramName: "{{endpoint}}",
+            maxFilesize: 20, // MB
+            parallelUploads: 5,
+            uploadMultiple: false,
+            dictDefaultMessage: "Déposez vos fichiers ici pour les téléverser",
+            successmultiple: function (files, response) {
+                console.log("multi uploaded", files);
+            },
+            queuecomplete: function () {
+                // Quand tous les fichiers sont uploadés, on ferme la modale et rafraîchit le navigateur
+                window.parent.$("#mymodalupload-{{ domain }}-{{ id|e('html_attr') }}").modal('hide');
+                if (typeof window.parent.refreshFileBrowser === 'function') {
+                    window.parent.refreshFileBrowser(); // à définir côté parent
+                }
+            }
+        };
+
+        function closeModal() {
+            window.parent.$("#mymodal").modal('hide');
+        }
+    </script>
+{% endblock %}

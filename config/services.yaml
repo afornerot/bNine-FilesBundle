@@ -1,0 +1,14 @@
+# config/services.yaml du bundle
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: true
+
+    Bnine\FilesBundle\:
+        resource: "../src/*"
+        exclude:
+        - "../src/DependencyInjection/"
+        - "../src/Entity/"
+        - "../src/Kernel.php"
+

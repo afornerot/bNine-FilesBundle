@@ -1,0 +1,4 @@
+bninefilesbundle:
+    resource: ../src/Controller/
+    type: attribute
+    prefix: /bninefile

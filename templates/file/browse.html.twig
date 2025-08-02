@@ -1,0 +1,264 @@
+<div id="file-browser-{{ domain }}-{{ id|e('html_attr') }}"
+     class="file-browser"
+     data-domain="{{ domain }}"
+     data-id="{{ id }}"
+     data-base-path="{{ path('bninefiles_files', { domain: domain, id: id, editable: editable }) }}"
+     data-current-path="{{ path }}"
+     data-delete-url="{{ path('bninefiles_files_delete', { domain: domain, id: id }) }}"
+     data-mkdir-url="{{ path('bninefiles_files_mkdir', { domain: domain, id: id }) }}"
+    >
+   
+    <div class="card mt-3">
+        <div class="card-header">Fichiers</div>
+        <div class="card-body">
+
+            {% if editable %}
+                <div class="mb-3 d-flex align-items-center justify-content-between flex-wrap">
+                    <div class="btn-group mb-2 mb-md-0" role="group">
+                        <button type="button"
+                            class="btn btn-info"
+                            data-bs-toggle="modal"
+                            data-bs-target="#mymodalupload-{{ domain }}-{{ id|e('html_attr') }}"
+                            onclick="ModalLoad('mymodalupload-{{ domain }}-{{ id|e('html_attr') }}','Upload','{{ path('bninefiles_files_uploadmodal',{domain:domain, id:id,path:path}) }}');"
+                            title="Téléverser un fichier">
+                            <i class="fas fa-upload me-1"></i> Upload
+                        </button>
+                        <button type="button"
+                            class="btn btn-info"
+                            data-bs-toggle="modal"
+                            data-bs-target="#mymodaldir-{{ domain }}-{{ id|e('html_attr') }}"
+                            title="Créer un répertoire">
+                            <i class="fas fa-folder-plus me-1"></i> Dossier
+                        </button>
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="mb-3">
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb">
+                        {# Racine / home #}
+                        <li class="breadcrumb-item">
+                            <a href="#" class="file-nav" data-path=""><i class='fas fa-home'></i></a>
+                        </li>
+                        {# Si un path est défini, on le découpe et on crée les liens #}
+                        {% if path %}
+                            {# On explose le path en segments #}
+                            {% set segments = path|split('/') %}
+                            {% set currentPath = '' %}
+                            {% for segment in segments %}
+                                {% set currentPath = currentPath ~ (currentPath ? '/' : '') ~ segment %}
+                                <li class="breadcrumb-item{{ loop.last ? ' active' : '' }}" {% if loop.last %}aria-current="page"{% endif %}>
+                                    {% if not loop.last %}
+                                        <a href="#" class="file-nav" data-path="{{ currentPath }}">{{ segment }}</a>
+                                    {% else %}
+                                        {{ segment }}
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        {% endif %}
+                    </ol>
+                </nav>
+            </div>
+        
+            {% set parentPath = path|split('/')|slice(0, -1)|join('/') %}
+
+            <ul class="list-group">
+                {% if path %}
+                    <li class="list-group-item d-flex align-items-center">
+                        <a href="#" class="file-nav text-decoration-none text-muted" data-path="{{ parentPath }}">
+                            <i class="fas fa-level-up-alt me-2"></i> <strong>..</strong>
+                        </a>
+                    </li>
+                {% endif %}
+
+                {% for file in files %}
+                    <li class="list-group-item d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center">
+                            {% if file.isDirectory %}
+                                <i class="fas fa-folder text-warning me-2"></i>
+                                <a href="#" class="file-nav text-decoration-none fw-semibold" data-path="{{ path ? path ~ '/' ~ file.name : file.name }}">
+                                    {{ file.name }}/
+                                </a>
+                            {% else %}
+                                <i class="fas fa-file text-secondary me-2"></i>
+                                <a href="{{ path('bninefiles_files_download', { domain: domain, id: id, path: file.path }) }}"
+                                target="_blank"
+                                class="text-decoration-none"
+                                >
+                                    {{ file.name }}
+                                </a>
+                            {% endif %}
+                        </div>
+                        {% if editable %}
+                            <button class="btn btn-sm btn-outline-danger btn-delete" data-path="{{ file.path }}" title="Supprimer">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        {% endif %}
+                    </li>
+                {% else %}
+                    <li class="list-group-item text-muted"><em>Dossier vide</em></li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <div id="mymodalupload-{{ domain }}-{{ id|e('html_attr') }}" class="modal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">INFORMATION</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <iframe id="framemodal" frameborder=0 width="100%" height="600px"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>               
+
+    <div id="mymodaldir-{{ domain }}-{{ id|e('html_attr') }}" class="modal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">CREATION REPERTOIRE</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control"
+                               placeholder="Nom du dossier"
+                               id="new-folder-name-{{ domain }}-{{ id|e('html_attr') }}">
+                        <button class="btn btn-success"
+                                data-container-id="file-browser-{{ domain }}-{{ id|e('html_attr') }}"
+                                data-modal-id="mymodaldir-{{ domain }}-{{ id|e('html_attr') }}"
+                                data-input-id="new-folder-name-{{ domain }}-{{ id|e('html_attr') }}"
+                                id="btn-create-folder-{{ domain }}-{{ id|e('html_attr') }}">Créer dossier</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>               
+
+<script>
+$(function () {
+    function refreshContainer(containerId, path) {
+        const $oldContainer = $('#' + containerId);
+        const base = $oldContainer.data('base-path');
+
+        $.get(base, { path: path }, function (html) {
+            const $doc = $('<div>').html(html);
+            const $newContainer = $doc.find('#' + containerId);
+            if ($newContainer.length) {
+                $oldContainer.replaceWith($newContainer);
+                initFileBrowser($newContainer); // rebind events
+            }
+        });
+    }
+
+    function initFileBrowser($container) {
+        const containerId = $container.attr('id');
+
+        // Clear any previous bindings (important!)
+        $container.off('click');
+
+        // Navigation dossier
+        $container.on('click', '.file-nav', function (e) {
+            e.preventDefault();
+            const path = $(this).data('path');
+            refreshContainer(containerId, path);
+        });
+
+        // Suppression fichier ou dossier
+        $container.on('click', '.btn-delete', function (e) {
+            e.preventDefault();
+            if (!confirm('Supprimer ce fichier ?')) return;
+
+            const pathToDelete = $(this).data('path');
+            const currentPath = $container.data('current-path');
+
+            $.ajax({
+                url: $container.data('delete-url'),
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ path: pathToDelete }),
+                success: function (res) {
+                    if (res.success) {
+                        refreshContainer(containerId, currentPath);
+                    } else {
+                        alert('Erreur : ' + res.error);
+                    }
+                },
+                error: function (xhr) {
+                    alert('Erreur lors de la suppression : ' + xhr.responseText);
+                }
+            });
+        });
+    }
+
+    // Init navigateur fichiers
+    const containerId = 'file-browser-{{ domain }}-{{ id|e('html_attr') }}';
+    const $browser = $('#' + containerId);
+    initFileBrowser($browser);
+
+    // Rafraîchir après fermeture modale upload
+    $('#mymodalupload-{{ domain }}-{{ id|e('html_attr') }}').on('hidden.bs.modal', function () {
+        const $browser = $('#' + containerId);
+        const currentPath = $browser.data('current-path') || '';
+        refreshContainer(containerId, currentPath);
+    });
+
+    // Focus sur creation de répertoire
+    $('#mymodaldir-{{ domain }}-{{ id|e('html_attr') }}').on('shown.bs.modal', function () {
+        $('#new-folder-name-{{ domain }}-{{ id|e('html_attr') }}').trigger('focus');
+    });    
+
+    // Sur enter input folder executer le click creation
+    $('#new-folder-name-{{ domain }}-{{ id|e('html_attr') }}').on('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Empêche le submit ou refresh
+            $('#btn-create-folder-{{ domain }}-{{ id|e('html_attr') }}').trigger('click');
+        }
+    });
+
+    // Création du répertoire
+    $('#btn-create-folder-{{ domain }}-{{ id|e('html_attr') }}').on('click', function (e) {
+        e.preventDefault();
+
+        const $btn = $(this);
+        const containerId = $btn.data('container-id');
+        const modalId = $btn.data('modal-id');
+        const inputId = $btn.data('input-id');
+
+        const $container = $('#' + containerId);
+        const $input = $('#' + inputId);
+        const folderName = $input.val().trim();
+        const currentPath = $container.data('current-path') || '';
+
+        if (!folderName) {
+            alert('Veuillez entrer un nom de dossier.');
+            return;
+        }
+
+        $.post($container.data('mkdir-url'), {
+            path: currentPath,
+            name: folderName
+        }, function (response) {
+            if (response.success) {
+                $input.val('');
+                const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
+                if (modal) modal.hide(); // Fermeture de la modal
+                refreshContainer(containerId, currentPath); // Refresh après fermeture
+            } else {
+                alert('Erreur : ' + response.error);
+            }
+        });
+    });
+
+});
+</script>
+
+
+
+
+</div>
