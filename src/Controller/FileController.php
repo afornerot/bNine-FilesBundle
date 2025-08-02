@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\Routing\Annotation\Route;
 
 class FileController extends AbstractController
@@ -162,6 +163,17 @@ class FileController extends AbstractController
             throw $this->createNotFoundException('Fichier introuvable.');
         }
 
-        return new BinaryFileResponse($absolutePath);
+        $response = new BinaryFileResponse($absolutePath);
+
+        // Récupérer le nom de fichier à partir du chemin relatif
+        $filename = basename($filePath);
+
+        // Forcer le téléchargement avec le nom de fichier correct
+        $response->setContentDisposition(
+            ResponseHeaderBag::DISPOSITION_ATTACHMENT,
+            $filename
+        );
+
+        return $response;
     }
 }
