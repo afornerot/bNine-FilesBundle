@@ -249,7 +249,7 @@ class FileController extends AbstractController
         $response = new BinaryFileResponse($absolutePath);
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE);
 
-        $mimeType = MimeTypes::guessMimeTypeForFile($absolutePath);
+        $mimeType = (new MimeTypes())->guessMimeType($absolutePath);
         if ($mimeType) {
             $response->headers->set('Content-Type', $mimeType);
         }
@@ -307,7 +307,7 @@ class FileController extends AbstractController
                 $response = new BinaryFileResponse($absolutePath);
                 $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE);
 
-                $mimeType = MimeTypes::guessMimeTypeForFile($absolutePath);
+                $mimeType = (new MimeTypes())->guessMimeType($absolutePath);
                 if ($mimeType) {
                     $response->headers->set('Content-Type', $mimeType);
                 }
@@ -319,7 +319,7 @@ class FileController extends AbstractController
         $response = new BinaryFileResponse($thumbPath);
         $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE);
 
-        $mimeType = MimeTypes::guessMimeTypeForFile($thumbPath);
+        $mimeType = (new MimeTypes())->guessMimeType($thumbPath);
         if ($mimeType) {
             $response->headers->set('Content-Type', $mimeType);
         }

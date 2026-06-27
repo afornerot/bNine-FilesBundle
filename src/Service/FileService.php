@@ -62,6 +62,9 @@ class FileService
 
         $results = [];
         foreach ($finder as $file) {
+            if ($file->isDir() && str_starts_with($file->getFilename(), '_')) {
+                continue;
+            }
             $results[] = [
                 'name' => $file->getFilename(),
                 'isDirectory' => $file->isDir(),

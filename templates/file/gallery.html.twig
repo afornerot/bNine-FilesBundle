@@ -47,7 +47,7 @@
      class="file-gallery"
      data-domain="{{ domain }}"
      data-id="{{ id }}"
-     data-base-path="{{ path('bninefiles_files_gallery', { domain: domain, id: id, editable: editable }) }}"
+     data-base-path="{{ path('bninefiles_files_gallery', { domain: domain, id: id, editable: editable, compact: compact ? 1 : null }) }}"
      data-current-path="{{ path }}"
      data-delete-url="{{ path('bninefiles_files_delete', { domain: domain, id: id }) }}"
      data-mkdir-url="{{ path('bninefiles_files_mkdir', { domain: domain, id: id }) }}"
