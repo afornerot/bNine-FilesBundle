@@ -4,15 +4,16 @@
 
 <style>
     .file-gallery-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 1rem;
+        columns: 4 200px;
+        column-gap: 0.75rem;
     }
     .file-gallery-item {
         position: relative;
         border-radius: 0.375rem;
         overflow: hidden;
         background: #f8f9fa;
+        break-inside: avoid;
+        margin-bottom: 0.75rem;
     }
     .file-gallery-item img {
         width: 100%;
