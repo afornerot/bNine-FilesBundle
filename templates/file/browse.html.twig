@@ -1,3 +1,5 @@
+{% set compact = compact|default(false) %}
+
 <div id="file-browser-{{ domain }}-{{ id|e('html_attr') }}"
      class="file-browser"
      data-domain="{{ domain }}"
@@ -8,9 +10,11 @@
      data-mkdir-url="{{ path('bninefiles_files_mkdir', { domain: domain, id: id }) }}"
     >
    
+    {% if not compact %}
     <div class="card mt-3">
         <div class="card-header">Fichiers</div>
         <div class="card-body">
+    {% endif %}
 
             {% if editable %}
                 <div class="mb-3 d-flex align-items-center justify-content-between flex-wrap">
@@ -100,8 +104,11 @@
                     <li class="list-group-item text-muted"><em>Dossier vide</em></li>
                 {% endfor %}
             </ul>
+
+    {% if not compact %}
         </div>
     </div>
+    {% endif %}
 
     <div id="mymodalupload-{{ domain }}-{{ id|e('html_attr') }}" class="modal" tabindex="-1">
         <div class="modal-dialog modal-lg">

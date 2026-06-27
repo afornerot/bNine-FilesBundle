@@ -28,6 +28,7 @@ class FileController extends AbstractController
         $this->denyAccessUnlessGranted($editable ? AbstractFileVoter::EDIT : AbstractFileVoter::VIEW, [$domain, $id]);
 
         $relativePath = $request->query->get('path', '');
+        $compact = $request->query->has('compact');
 
         try {
             $files = $this->fileService->list($domain, (string) $id, $relativePath);
@@ -38,6 +39,7 @@ class FileController extends AbstractController
                 'files' => $files,
                 'path' => $relativePath,
                 'editable' => $editable,
+                'compact' => $compact,
             ]);
         } catch (\Exception $e) {
             $this->addFlash('danger', $e->getMessage());
