@@ -1,0 +1,345 @@
+{% set compact = compact|default(false) %}
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css">
+
+<style>
+    .file-gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .file-gallery-item {
+        position: relative;
+        border-radius: 0.375rem;
+        overflow: hidden;
+        background: #f8f9fa;
+        aspect-ratio: 1;
+    }
+    .file-gallery-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    .file-gallery-item .file-gallery-delete {
+        position: absolute;
+        top: 0.25rem;
+        right: 0.25rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    .file-gallery-item:hover .file-gallery-delete {
+        opacity: 1;
+    }
+    .file-gallery-file {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 0.75rem;
+        text-decoration: none;
+        color: inherit;
+    }
+    .file-gallery-file:hover {
+        background: #f8f9fa;
+    }
+</style>
+
+<div id="file-gallery-{{ domain }}-{{ id|e('html_attr') }}"
+     class="file-gallery"
+     data-domain="{{ domain }}"
+     data-id="{{ id }}"
+     data-base-path="{{ path('bninefiles_files_gallery', { domain: domain, id: id, editable: editable }) }}"
+     data-current-path="{{ path }}"
+     data-delete-url="{{ path('bninefiles_files_delete', { domain: domain, id: id }) }}"
+     data-mkdir-url="{{ path('bninefiles_files_mkdir', { domain: domain, id: id }) }}"
+    >
+
+    {% if not compact %}
+    <div class="card mt-3">
+        <div class="card-header">Galérie</div>
+        <div class="card-body">
+    {% endif %}
+
+            {% if editable %}
+                <div class="mb-3 d-flex align-items-center justify-content-between flex-wrap">
+                    <div class="btn-group mb-2 mb-md-0" role="group">
+                        <button type="button"
+                            class="btn btn-info"
+                            data-bs-toggle="modal"
+                            data-bs-target="#mymodalupload-{{ domain }}-{{ id|e('html_attr') }}"
+                            onclick="ModalLoad('mymodalupload-{{ domain }}-{{ id|e('html_attr') }}','Upload','{{ path('bninefiles_files_uploadmodal',{domain:domain, id:id,path:path,imageOnly:1}) }}');"
+                            title="Téléverser des images">
+                            <i class="fas fa-upload me-1"></i> Upload
+                        </button>
+                        <button type="button"
+                            class="btn btn-info"
+                            data-bs-toggle="modal"
+                            data-bs-target="#mymodaldir-{{ domain }}-{{ id|e('html_attr') }}"
+                            title="Créer un répertoire">
+                            <i class="fas fa-folder-plus me-1"></i> Dossier
+                        </button>
+                    </div>
+                </div>
+            {% endif %}
+
+            <div class="mb-3">
+                <nav aria-label="breadcrumb" class="mb-3">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item">
+                            <a href="#" class="gallery-nav" data-path=""><i class='fas fa-home'></i></a>
+                        </li>
+                        {% if path %}
+                            {% set segments = path|split('/') %}
+                            {% set currentPath = '' %}
+                            {% for segment in segments %}
+                                {% set currentPath = currentPath ~ (currentPath ? '/' : '') ~ segment %}
+                                <li class="breadcrumb-item{{ loop.last ? ' active' : '' }}" {% if loop.last %}aria-current="page"{% endif %}>
+                                    {% if not loop.last %}
+                                        <a href="#" class="gallery-nav" data-path="{{ currentPath }}">{{ segment }}</a>
+                                    {% else %}
+                                        {{ segment }}
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                        {% endif %}
+                    </ol>
+                </nav>
+            </div>
+
+            {% set parentPath = path|split('/')|slice(0, -1)|join('/') %}
+
+            {% if path %}
+                <div class="mb-2">
+                    <a href="#" class="gallery-nav text-decoration-none text-muted" data-path="{{ parentPath }}">
+                        <i class="fas fa-level-up-alt me-1"></i> <strong>..</strong>
+                    </a>
+                </div>
+            {% endif %}
+
+            <div class="file-gallery-grid">
+                {% for file in files %}
+                    {% if file.isDirectory %}
+                        <div class="file-gallery-item d-flex align-items-center justify-content-center" style="aspect-ratio: auto;">
+                            <a href="#" class="gallery-nav text-decoration-none fw-semibold p-3" data-path="{{ path ? path ~ '/' ~ file.name : file.name }}">
+                                <i class="fas fa-folder text-warning me-2"></i>{{ file.name }}/
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="file-gallery-item">
+                            <a href="{{ path('bninefiles_files_image', { domain: domain, id: id, path: file.path }) }}"
+                               class="glightbox"
+                               data-gallery="gallery-{{ domain }}-{{ id }}"
+                               data-description="{{ file.name }}">
+                                <img src="{{ path('bninefiles_files_thumbnail', { domain: domain, id: id, path: file.path }) }}"
+                                     alt="{{ file.name }}"
+                                     loading="lazy">
+                            </a>
+                            {% if editable %}
+                                <button class="btn btn-sm btn-danger file-gallery-delete btn-delete" data-path="{{ file.path }}" title="Supprimer">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-muted p-3"><em>Aucune image</em></div>
+                {% endfor %}
+            </div>
+
+            {# Fichiers non-image s'il y en a #}
+            {% set nonImageFiles = [] %}
+            {% for file in allFiles %}
+                {% if not file.isDirectory %}
+                    {% set ext = file.name|split('.')|last|lower %}
+                    {% set imageExts = ['jpg','jpeg','png','gif','webp','svg','bmp','tiff','tif'] %}
+                    {% if ext not in imageExts %}
+                        {% set nonImageFiles = nonImageFiles|merge([file]) %}
+                    {% endif %}
+                {% endif %}
+            {% endfor %}
+
+            {% if nonImageFiles|length > 0 %}
+                <div class="mt-3">
+                    <h6 class="text-muted mb-2"><i class="fas fa-file me-1"></i> Autres fichiers</h6>
+                    <ul class="list-group">
+                        {% for file in nonImageFiles %}
+                            <li class="list-group-item d-flex align-items-center justify-content-between">
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-file text-secondary me-2"></i>
+                                    <a href="{{ path('bninefiles_files_download', { domain: domain, id: id, path: file.path }) }}"
+                                       target="_blank"
+                                       class="text-decoration-none">
+                                        {{ file.name }}
+                                    </a>
+                                </div>
+                                {% if editable %}
+                                    <button class="btn btn-sm btn-outline-danger btn-delete" data-path="{{ file.path }}" title="Supprimer">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                {% endif %}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            {% endif %}
+
+    {% if not compact %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div id="mymodalupload-{{ domain }}-{{ id|e('html_attr') }}" class="modal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Téléverser des images</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <iframe id="framemodal" frameborder=0 width="100%" height="600px"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="mymodaldir-{{ domain }}-{{ id|e('html_attr') }}" class="modal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">CREATION REPERTOIRE</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="input-group mb-3">
+                        <input type="text" class="form-control"
+                               placeholder="Nom du dossier"
+                               id="new-folder-name-{{ domain }}-{{ id|e('html_attr') }}">
+                        <button class="btn btn-success"
+                                data-container-id="file-gallery-{{ domain }}-{{ id|e('html_attr') }}"
+                                data-modal-id="mymodaldir-{{ domain }}-{{ id|e('html_attr') }}"
+                                data-input-id="new-folder-name-{{ domain }}-{{ id|e('html_attr') }}"
+                                id="btn-create-folder-{{ domain }}-{{ id|e('html_attr') }}">Créer dossier</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+$(function () {
+    var lightbox = GLightbox({
+        loop: true,
+        touchNavigation: true,
+        preload: true
+    });
+
+    function refreshContainer(containerId, path) {
+        const $oldContainer = $('#' + containerId);
+        const base = $oldContainer.data('base-path');
+
+        $.get(base, { path: path }, function (html) {
+            const $doc = $('<div>').html(html);
+            const $newContainer = $doc.find('#' + containerId);
+            if ($newContainer.length) {
+                $oldContainer.replaceWith($newContainer);
+                initGallery($newContainer);
+                lightbox.reload();
+            }
+        });
+    }
+
+    function initGallery($container) {
+        const containerId = $container.attr('id');
+
+        $container.off('click');
+
+        $container.on('click', '.gallery-nav', function (e) {
+            e.preventDefault();
+            const path = $(this).data('path');
+            refreshContainer(containerId, path);
+        });
+
+        $container.on('click', '.btn-delete', function (e) {
+            e.preventDefault();
+            if (!confirm('Supprimer ce fichier ?')) return;
+
+            const pathToDelete = $(this).data('path');
+            const currentPath = $container.data('current-path');
+
+            $.ajax({
+                url: $container.data('delete-url'),
+                method: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({ path: pathToDelete }),
+                success: function (res) {
+                    if (res.success) {
+                        refreshContainer(containerId, currentPath);
+                    } else {
+                        alert('Erreur : ' + res.error);
+                    }
+                },
+                error: function (xhr) {
+                    alert('Erreur lors de la suppression : ' + xhr.responseText);
+                }
+            });
+        });
+    }
+
+    const containerId = 'file-gallery-{{ domain }}-{{ id|e('html_attr') }}';
+    const $gallery = $('#' + containerId);
+    initGallery($gallery);
+
+    $('#mymodalupload-{{ domain }}-{{ id|e('html_attr') }}').on('hidden.bs.modal', function () {
+        const $gallery = $('#' + containerId);
+        const currentPath = $gallery.data('current-path') || '';
+        refreshContainer(containerId, currentPath);
+    });
+
+    $('#mymodaldir-{{ domain }}-{{ id|e('html_attr') }}').on('shown.bs.modal', function () {
+        $('#new-folder-name-{{ domain }}-{{ id|e('html_attr') }}').trigger('focus');
+    });
+
+    $('#new-folder-name-{{ domain }}-{{ id|e('html_attr') }}').on('keydown', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            $('#btn-create-folder-{{ domain }}-{{ id|e('html_attr') }}').trigger('click');
+        }
+    });
+
+    $('#btn-create-folder-{{ domain }}-{{ id|e('html_attr') }}').on('click', function (e) {
+        e.preventDefault();
+
+        const $btn = $(this);
+        const containerId = $btn.data('container-id');
+        const modalId = $btn.data('modal-id');
+        const inputId = $btn.data('input-id');
+
+        const $container = $('#' + containerId);
+        const $input = $('#' + inputId);
+        const folderName = $input.val().trim();
+        const currentPath = $container.data('current-path') || '';
+
+        if (!folderName) {
+            alert('Veuillez entrer un nom de dossier.');
+            return;
+        }
+
+        $.post($container.data('mkdir-url'), {
+            path: currentPath,
+            name: folderName
+        }, function (response) {
+            if (response.success) {
+                $input.val('');
+                const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
+                if (modal) modal.hide();
+                refreshContainer(containerId, currentPath);
+            } else {
+                alert('Erreur : ' + response.error);
+            }
+        });
+    });
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js"></script>
+
+</div>

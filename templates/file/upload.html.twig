@@ -22,18 +22,22 @@
     <script>
         Dropzone.options.myDropzone = {
             paramName: "{{endpoint}}",
-            maxFilesize: 20, // MB
+            maxFilesize: 20,
             parallelUploads: 5,
             uploadMultiple: false,
+            {% if imageOnly is defined and imageOnly %}
+            acceptedFiles: ".jpg,.jpeg,.png,.gif,.webp,.svg,.bmp,.tiff,.tif",
+            dictDefaultMessage: "Déposez vos images ici pour les téléverser",
+            {% else %}
             dictDefaultMessage: "Déposez vos fichiers ici pour les téléverser",
+            {% endif %}
             successmultiple: function (files, response) {
                 console.log("multi uploaded", files);
             },
             queuecomplete: function () {
-                // Quand tous les fichiers sont uploadés, on ferme la modale et rafraîchit le navigateur
                 window.parent.$("#mymodalupload-{{ domain }}-{{ id|e('html_attr') }}").modal('hide');
                 if (typeof window.parent.refreshFileBrowser === 'function') {
-                    window.parent.refreshFileBrowser(); // à définir côté parent
+                    window.parent.refreshFileBrowser();
                 }
             }
         };

@@ -8,6 +8,8 @@
         "bundle",
         "files",
         "file-browser",
+        "gallery",
+        "thumbnails",
         "entity",
         "upload",
         "directory"
@@ -25,7 +27,8 @@
     },
     "require": {
         "php": "^8.1",
-        "symfony/framework-bundle": "^7.1"
+        "symfony/framework-bundle": "^7.1",
+        "imagine/imagine": "^1.0"
     },
     "suggest": {
         "oneup/uploader-bundle": "^4.0"

@@ -1,13 +1,14 @@
 # bNine-FilesBundle
 
 A Symfony bundle to easily manage and browse files and directories associated with your application entities.  
-Includes secure file upload, download, browsing, and directory management features, ready to integrate in your Symfony project.
+Includes secure file upload, download, browsing, directory management, and image gallery features, ready to integrate in your Symfony project.
 
 ## Features
 
 - Entity-based file & directory management
+- Image gallery view with thumbnails and lightbox
 - Secure file upload & download (OneupUploader integration)
-- Breadcumb navigation and Bootstrap/FontAwesome ready templates
+- Breadcrumb navigation and Bootstrap/FontAwesome ready templates
 - Fine-grained access control (voter system)
 - Easy integration and configuration
 - Extensible and customizable for your own use-case
@@ -19,6 +20,7 @@ Includes secure file upload, download, browsing, and directory management featur
 - Symfony 7+
 - PHP 8.1+
 - [oneup/uploader-bundle](https://github.com/1up-lab/OneupUploaderBundle)
+- [imagine/imagine](https://imagine.readthedocs.io/) (for gallery thumbnail generation)
 
 ### JavaScript/CSS Libraries
 
@@ -28,6 +30,7 @@ You must include the following libraries in your project for the bundle's fronte
 - [Font Awesome Free](https://fontawesome.com/) (SVG icons)
 - [Bootstrap](https://getbootstrap.com/) (UI framework)
 - [jQuery](https://jquery.com/) (required for some interactive features)
+- [GLightbox](https://biati-digital.github.io/glightbox/) (image lightbox, required for gallery view)
 
 Example with Symfony Webpack Encore:
 
@@ -161,8 +164,9 @@ To display the file container for a specific domain and entity, insert the follo
 
 - **editable**: 0 renders the file browser in read-only mode.
 - **editable**: 1 renders with upload, create folder, and delete options enabled.
+- **compact**: Add `compact: 1` to remove the card wrapper and render just the content.
 
-**Example:**
+**Examples:**
 
 ```twig
 {# Read-only file browser #}
@@ -170,10 +174,48 @@ To display the file container for a specific domain and entity, insert the follo
 
 {# Editable file browser (allows upload, create folder, delete) #}
 {{ render(path("bninefiles_files", {domain: 'project', id: project.id, editable: 1})) }}
+
+{# Compact mode (no card wrapper) #}
+{{ render(path("bninefiles_files", {domain: 'project', id: project.id, editable: 1, compact: 1})) }}
 ```
 
-This is the only integration you need in your templates.  
-Just insert this line wherever you want the file manager to appear!
+### Image Gallery
+
+The bundle provides a gallery view for image files with thumbnails and lightbox support.
+
+**Routes:**
+
+| Route | Method | Description |
+|---|---|---|
+| `bninefiles_files_gallery` | GET | Gallery grid view (images + directories) |
+| `bninefiles_files_image` | GET | Serves an image inline with proper Content-Type |
+| `bninefiles_files_thumbnail` | GET | Generates and caches thumbnails (300px wide) |
+
+**Usage:**
+
+```twig
+{# Gallery view (read-only) #}
+{{ render(path("bninefiles_files_gallery", {domain: 'project', id: project.id, editable: 0})) }}
+
+{# Gallery view (editable) #}
+{{ render(path("bninefiles_files_gallery", {domain: 'project', id: project.id, editable: 1})) }}
+
+{# Compact gallery (no card wrapper) #}
+{{ render(path("bninefiles_files_gallery", {domain: 'project', id: project.id, editable: 1, compact: 1})) }}
+```
+
+**Features:**
+- Grid layout with auto-fill columns (min 200px)
+- Server-side thumbnails (300px wide, proportional height) cached in `_thumbs/300xN/`
+- GLightbox integration for full-size image viewing
+- Upload restricted to image files (client-side filter)
+- Non-image files listed separately below the gallery grid
+
+**Thumbnail generation:**
+- Uses Imagine library for server-side thumbnail creation
+- Thumbnails cached in `uploads/{domain}/{id}/_thumbs/300xN/`
+- Quality: 85%, EXIF data stripped
+- Fallback to original image on generation failure
 
 ## Security & Voters
 

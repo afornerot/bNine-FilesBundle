@@ -4,6 +4,7 @@ namespace Bnine\FilesBundle\Controller;
 
 use Bnine\FilesBundle\Security\AbstractFileVoter;
 use Bnine\FilesBundle\Service\FileService;
+use Imagine\Gd\Imagine;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -11,10 +12,13 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
+use Symfony\Component\Mime\MimeTypes;
 use Symfony\Component\Routing\Annotation\Route;
 
 class FileController extends AbstractController
 {
+    private const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif'];
+
     private FileService $fileService;
 
     public function __construct(FileService $fileService)
@@ -59,15 +63,17 @@ class FileController extends AbstractController
         $this->denyAccessUnlessGranted(AbstractFileVoter::EDIT, [$domain, $id]);
 
         $relativePath = $request->query->get('path', '');
+        $imageOnly = $request->query->has('imageOnly');
 
         return $this->render('@BnineFilesBundle\file\upload.html.twig', [
             'useheader' => false,
             'usemenu' => false,
-            'usesidebar' => false,
-            'endpoint' => 'bninefile',
-            'domain' => $domain,
-            'id' => $id,
-            'path' => $relativePath,
+            'usesidebar'=> false,
+            'endpoint'  => 'bninefile',
+            'domain'    => $domain,
+            'id'        => $id,
+            'path'      => $relativePath,
+            'imageOnly' => $imageOnly,
         ]);
     }
 
@@ -175,6 +181,150 @@ class FileController extends AbstractController
             ResponseHeaderBag::DISPOSITION_ATTACHMENT,
             $filename
         );
+
+        return $response;
+    }
+
+    #[Route('/gallery/{domain}/{id}/{editable}', name: 'bninefiles_files_gallery', methods: ['GET'])]
+    public function gallery(string $domain, int $id, int $editable, Request $request): Response
+    {
+        $this->denyAccessUnlessGranted($editable ? AbstractFileVoter::EDIT : AbstractFileVoter::VIEW, [$domain, $id]);
+
+        $relativePath = $request->query->get('path', '');
+        $compact = $request->query->has('compact');
+
+        try {
+            $allFiles = $this->fileService->list($domain, (string) $id, $relativePath);
+
+            $files = array_filter($allFiles, function ($file) {
+                if ($file['isDirectory']) {
+                    return true;
+                }
+                $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+                return in_array($ext, self::IMAGE_EXTENSIONS);
+            });
+
+            return $this->render('@BnineFilesBundle/file/gallery.html.twig', [
+                'domain' => $domain,
+                'id' => $id,
+                'files' => array_values($files),
+                'allFiles' => $allFiles,
+                'path' => $relativePath,
+                'editable' => $editable,
+                'compact' => $compact,
+            ]);
+        } catch (\Exception $e) {
+            $this->addFlash('danger', $e->getMessage());
+
+            return $this->redirectToRoute('bninefiles_files_gallery', [
+                'domain' => $domain,
+                'id' => $id,
+                'editable' => $editable,
+            ]);
+        }
+    }
+
+    #[Route('/image/{domain}/{id}', name: 'bninefiles_files_image', methods: ['GET'])]
+    public function image(Request $request, string $domain, int $id): Response
+    {
+        $this->denyAccessUnlessGranted(AbstractFileVoter::VIEW, [$domain, $id]);
+
+        $filePath = $request->query->get('path');
+
+        if (!$filePath) {
+            throw $this->createNotFoundException('Fichier non spécifié.');
+        }
+
+        $basePath = $this->fileService->getEntityPath($domain, (string) $id);
+        $absolutePath = realpath($basePath.'/'.$filePath);
+
+        if (!$absolutePath || !str_starts_with($absolutePath, $basePath)) {
+            throw $this->createAccessDeniedException('Accès refusé.');
+        }
+
+        if (!file_exists($absolutePath) || !is_file($absolutePath)) {
+            throw $this->createNotFoundException('Fichier introuvable.');
+        }
+
+        $response = new BinaryFileResponse($absolutePath);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE);
+
+        $mimeType = MimeTypes::guessMimeTypeForFile($absolutePath);
+        if ($mimeType) {
+            $response->headers->set('Content-Type', $mimeType);
+        }
+
+        $response->setMaxAge(86400);
+
+        return $response;
+    }
+
+    #[Route('/thumbnail/{domain}/{id}', name: 'bninefiles_files_thumbnail', methods: ['GET'])]
+    public function thumbnail(Request $request, string $domain, int $id): Response
+    {
+        $this->denyAccessUnlessGranted(AbstractFileVoter::VIEW, [$domain, $id]);
+
+        $filePath = $request->query->get('path');
+        $width = 300;
+
+        if (!$filePath) {
+            throw $this->createNotFoundException('Fichier non spécifié.');
+        }
+
+        $basePath = $this->fileService->getEntityPath($domain, (string) $id);
+        $absolutePath = realpath($basePath.'/'.$filePath);
+
+        if (!$absolutePath || !str_starts_with($absolutePath, $basePath)) {
+            throw $this->createAccessDeniedException('Accès refusé.');
+        }
+
+        if (!file_exists($absolutePath) || !is_file($absolutePath)) {
+            throw $this->createNotFoundException('Fichier introuvable.');
+        }
+
+        $thumbDir = $basePath.'/_thumbs/'.$width.'xN';
+        if (!is_dir($thumbDir)) {
+            mkdir($thumbDir, 0775, true);
+        }
+
+        $filename = pathinfo($filePath, PATHINFO_FILENAME);
+        $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+        $thumbFilename = $filename.'.'.$ext;
+        $thumbPath = $thumbDir.'/'.$thumbFilename;
+
+        if (!file_exists($thumbPath)) {
+            try {
+                $imagine = new Imagine();
+                $image = $imagine->open($absolutePath);
+                $size = $image->getSize();
+                $ratio = $width / $size->getWidth();
+                $height = (int) ($size->getHeight() * $ratio);
+
+                $image->resize(new \Imagine\Image\Box($width, $height))
+                    ->strip()
+                    ->save($thumbPath, ['quality' => 85]);
+            } catch (\Exception $e) {
+                $response = new BinaryFileResponse($absolutePath);
+                $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE);
+
+                $mimeType = MimeTypes::guessMimeTypeForFile($absolutePath);
+                if ($mimeType) {
+                    $response->headers->set('Content-Type', $mimeType);
+                }
+
+                return $response;
+            }
+        }
+
+        $response = new BinaryFileResponse($thumbPath);
+        $response->setContentDisposition(ResponseHeaderBag::DISPOSITION_INLINE);
+
+        $mimeType = MimeTypes::guessMimeTypeForFile($thumbPath);
+        if ($mimeType) {
+            $response->headers->set('Content-Type', $mimeType);
+        }
+
+        $response->setMaxAge(86400 * 30);
 
         return $response;
     }
