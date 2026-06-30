@@ -20,6 +20,8 @@
 
 {% block localscript %}
     <script>
+        var lastUploadedFilename = null;
+
         Dropzone.options.myDropzone = {
             paramName: "{{endpoint}}",
             maxFilesize: 20,
@@ -31,19 +33,27 @@
             {% else %}
             dictDefaultMessage: "Déposez vos fichiers ici pour les téléverser",
             {% endif %}
+            success: function (file, response) {
+                lastUploadedFilename = file.name;
+            },
             successmultiple: function (files, response) {
-                console.log("multi uploaded", files);
+                lastUploadedFilename = files.length > 0 ? files[files.length - 1].name : null;
             },
             queuecomplete: function () {
-                window.parent.$("#mymodalupload-{{ domain }}-{{ id|e('html_attr') }}").modal('hide');
-                if (typeof window.parent.refreshFileBrowser === 'function') {
-                    window.parent.refreshFileBrowser();
+                if (typeof window.parent.imageUploadDone === 'function') {
+                    window.parent.imageUploadDone(lastUploadedFilename);
+                } else {
+                    window.parent.location.reload();
                 }
             }
         };
 
         function closeModal() {
-            window.parent.$("#mymodal").modal('hide');
+            if (typeof window.parent.imageUploadDone === 'function') {
+                window.parent.imageUploadDone(null);
+            } else {
+                window.parent.$(".modal.show").modal('hide');
+            }
         }
     </script>
 {% endblock %}

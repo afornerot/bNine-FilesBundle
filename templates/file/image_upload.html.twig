@@ -1,0 +1,64 @@
+{% block image_upload_widget %}
+    <div class="image-upload-wrapper">
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <img class="image-upload-preview"
+                 src="{% if value %}{{ path('bninefiles_files_thumbnail', {domain: attr['data-domain'], id: attr['data-entity-id'], path: value}) }}{% endif %}"
+                 alt=""
+                 style="height: 80px; border-radius: 4px; background: var(--bs-light); padding: 4px; {% if not value %}display: none;{% endif %}">
+            <button type="button" class="btn btn-sm btn-outline-primary image-upload-btn">
+                <i class="fas fa-upload"></i> Choisir une image
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger image-upload-clear" title="Retirer" style="{% if not value %}display: none;{% endif %}">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <input type="hidden" {{ block('widget_attributes') }} value="{{ value|default('') }}">
+    </div>
+
+    <div class="modal fade" id="imageUploadModal-{{ attr['data-entity-id'] }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Uploader une image</h4>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body">
+                    <iframe id="framemodal-{{ attr['data-entity-id'] }}" frameborder="0" width="100%" height="600px"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    $(document).ready(function() {
+        var $wrapper = $('#{{ id }}').closest('.image-upload-wrapper');
+        var domain = '{{ attr["data-domain"] }}';
+        var entityId = '{{ attr["data-entity-id"] }}';
+        var modalId = 'imageUploadModal-' + entityId;
+        var uploadUrl = '{{ path("bninefiles_files_uploadmodal", {domain: attr["data-domain"], id: attr["data-entity-id"], imageOnly: 1}) }}';
+
+        window.imageUploadDone = function(filename) {
+            $wrapper.find('input[type="hidden"]').val(filename);
+            if (filename) {
+                var thumbUrl = '{{ path("bninefiles_files_thumbnail", {domain: attr["data-domain"], id: attr["data-entity-id"], path: "___VAL___"}) }}'.replace('___VAL___', encodeURIComponent(filename));
+                $wrapper.find('.image-upload-preview').attr('src', thumbUrl).show();
+                $wrapper.find('.image-upload-clear').show();
+            }
+            var modal = bootstrap.Modal.getOrCreateInstance($('#' + modalId)[0]);
+            modal.hide();
+        };
+
+        $wrapper.find('.image-upload-btn').on('click', function() {
+            $('#' + modalId).find('iframe').attr('src', uploadUrl);
+            var modal = bootstrap.Modal.getOrCreateInstance($('#' + modalId)[0]);
+            modal.show();
+        });
+
+        $wrapper.find('.image-upload-clear').on('click', function() {
+            $wrapper.find('input[type="hidden"]').val('');
+            $wrapper.find('.image-upload-preview').attr('src', '').hide();
+            $(this).hide();
+        });
+    });
+    </script>
+{% endblock %}
