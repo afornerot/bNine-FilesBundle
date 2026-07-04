@@ -43,7 +43,7 @@
                 if (typeof window.parent.imageUploadDone === 'function') {
                     window.parent.imageUploadDone(lastUploadedFilename);
                 } else {
-                    window.parent.location.reload();
+                    closeModal();
                 }
             }
         };
@@ -52,7 +52,18 @@
             if (typeof window.parent.imageUploadDone === 'function') {
                 window.parent.imageUploadDone(null);
             } else {
-                window.parent.$(".modal.show").modal('hide');
+                var parentDoc = window.parent.document;
+                var iframes = parentDoc.querySelectorAll('.modal iframe');
+                for (var i = 0; i < iframes.length; i++) {
+                    var modal = iframes[i].closest('.modal');
+                    if (modal && modal.classList.contains('show')) {
+                        var bsModal = window.parent.bootstrap.Modal.getInstance(modal);
+                        if (bsModal) {
+                            bsModal.hide();
+                        }
+                        break;
+                    }
+                }
             }
         }
     </script>
