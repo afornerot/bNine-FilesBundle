@@ -66,6 +66,7 @@ class FileController extends AbstractController
 
         $relativePath = $request->query->get('path', '');
         $imageOnly = $request->query->has('imageOnly');
+        $crop = $request->query->has('crop');
 
         return $this->render('@BnineFilesBundle\file\upload.html.twig', [
             'useheader' => false,
@@ -76,6 +77,7 @@ class FileController extends AbstractController
             'id'        => $id,
             'path'      => $relativePath,
             'imageOnly' => $imageOnly,
+            'crop'      => $crop,
         ]);
     }
 
@@ -90,7 +92,7 @@ class FileController extends AbstractController
 
         $this->denyAccessUnlessGranted(AbstractFileVoter::EDIT, [$domain, $id]);
 
-        if (!$file || !$domain || !$id) {
+        if (!$file || !$domain || $id === null) {
             return new JsonResponse('Invalid parameters', 400);
         }
 
@@ -455,6 +457,32 @@ class FileController extends AbstractController
         $response->setMaxAge(86400 * 30);
 
         return $response;
+    }
+
+    #[Route('/crop-page/{domain}/{id}', name: 'bninefiles_files_crop_page', methods: ['GET'])]
+    public function cropPage(Request $request, string $domain, int $id): Response
+    {
+        $this->denyAccessUnlessGranted(AbstractFileVoter::VIEW, [$domain, $id]);
+
+        $filePath = $request->query->get('path');
+
+        if (!$filePath) {
+            throw $this->createNotFoundException('Fichier non spécifié.');
+        }
+
+        if ($this->fileService->isS3()) {
+            $storagePath = $this->fileService->getRelativePath($domain, (string) $id, $filePath);
+            $image = $this->fileService->getStorage()->publicUrl($storagePath);
+        } else {
+            $image = '/bninefiles/image/'.$domain.'/'.$id.'?path='.$filePath;
+        }
+
+        return $this->render('@BnineFilesBundle/file/crop.html.twig', [
+            'domain' => $domain,
+            'id' => $id,
+            'filePath' => $filePath,
+            'image' => $image,
+        ]);
     }
 
     #[Route('/crop/{domain}/{id}', name: 'bninefiles_files_crop', methods: ['POST'])]

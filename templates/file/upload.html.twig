@@ -40,11 +40,19 @@
                 lastUploadedFilename = files.length > 0 ? files[files.length - 1].name : null;
             },
             queuecomplete: function () {
-                if (typeof window.parent.imageUploadDone === 'function') {
-                    window.parent.imageUploadDone(lastUploadedFilename);
-                } else {
+                if (!lastUploadedFilename) {
                     closeModal();
+                    return;
                 }
+                {% if crop is defined and crop %}
+                var cropUrl = '{{ path("bninefiles_files_crop_page", {domain: domain, id: id}) }}?path=' + encodeURIComponent('{{ path }}/' + lastUploadedFilename);
+                window.location.href = cropUrl;
+                {% else %}
+                if (typeof window.parent.imageUploadDone === 'function') {
+                    window.parent.imageUploadDone('{{ path }}/' + lastUploadedFilename);
+                }
+                closeModal();
+                {% endif %}
             }
         };
 
@@ -53,16 +61,10 @@
                 window.parent.imageUploadDone(null);
             } else {
                 var parentDoc = window.parent.document;
-                var iframes = parentDoc.querySelectorAll('.modal iframe');
-                for (var i = 0; i < iframes.length; i++) {
-                    var modal = iframes[i].closest('.modal');
-                    if (modal && modal.classList.contains('show')) {
-                        var bsModal = window.parent.bootstrap.Modal.getInstance(modal);
-                        if (bsModal) {
-                            bsModal.hide();
-                        }
-                        break;
-                    }
+                var modals = parentDoc.querySelectorAll('.modal.show');
+                for (var i = 0; i < modals.length; i++) {
+                    var bsModal = window.parent.bootstrap.Modal.getInstance(modals[i]);
+                    if (bsModal) bsModal.hide();
                 }
             }
         }
