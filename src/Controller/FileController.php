@@ -98,6 +98,12 @@ class FileController extends AbstractController
 
         $originalName = $file->getClientOriginalName();
 
+        $publicDomains = ['avatar', 'logo', 'icon'];
+        if (in_array($domain, $publicDomains)) {
+            $ext = pathinfo($originalName, PATHINFO_EXTENSION) ? '.'.pathinfo($originalName, PATHINFO_EXTENSION) : '';
+            $originalName = bin2hex(random_bytes(16)).$ext;
+        }
+
         if ($this->fileService->isS3()) {
             $dirPath = $this->fileService->getRelativePath($domain, $id, $relativePath);
             $this->fileService->getStorage()->createDirectory($dirPath);
@@ -118,7 +124,7 @@ class FileController extends AbstractController
             $file->move($baseDir, $originalName);
         }
 
-        return new JsonResponse(['success' => true]);
+        return new JsonResponse(['success' => true, 'filename' => $originalName]);
     }
 
     #[Route('/delete/{domain}/{id}', name: 'bninefiles_files_delete', methods: ['POST'])]

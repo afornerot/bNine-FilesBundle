@@ -2,14 +2,12 @@
 
 {% block localstyle %}
     <style>
-        body {
-            background-color: transparent;
-        }
+        body { background-color: transparent; }
     </style>
 {% endblock %}
 
 {% block body %}
-    <a class="btn btn-secondary" onClick="closeModal();">Annuler</a>
+    <a class="btn btn-secondary" onclick="window.parent.BnineModalClose();">Annuler</a>
     <form action="{{ path('bninefiles_files_uploadfile', {
         domain: domain,
         id: id,
@@ -34,39 +32,23 @@
             dictDefaultMessage: "Déposez vos fichiers ici pour les téléverser",
             {% endif %}
             success: function (file, response) {
-                lastUploadedFilename = file.name;
+                lastUploadedFilename = response.filename || file.name;
             },
             successmultiple: function (files, response) {
-                lastUploadedFilename = files.length > 0 ? files[files.length - 1].name : null;
+                lastUploadedFilename = (response && response.filename) ? response.filename : (files.length > 0 ? files[files.length - 1].name : null);
             },
             queuecomplete: function () {
-                if (!lastUploadedFilename) {
-                    closeModal();
-                    return;
-                }
                 {% if crop is defined and crop %}
-                var cropUrl = '{{ path("bninefiles_files_crop_page", {domain: domain, id: id}) }}?path=' + encodeURIComponent('{{ path }}/' + lastUploadedFilename);
-                window.location.href = cropUrl;
-                {% else %}
-                if (typeof window.parent.imageUploadDone === 'function') {
-                    window.parent.imageUploadDone('{{ path }}/' + lastUploadedFilename);
+                if (lastUploadedFilename) {
+                    var cropUrl = '{{ path("bninefiles_files_crop_page", {domain: domain, id: id}) }}?path=' + encodeURIComponent('{{ path }}/' + lastUploadedFilename);
+                    window.location.href = cropUrl;
+                } else {
+                    window.parent.BnineModalClose();
                 }
-                closeModal();
+                {% else %}
+                window.parent.BnineModalClose();
                 {% endif %}
             }
         };
-
-        function closeModal() {
-            if (typeof window.parent.imageUploadDone === 'function') {
-                window.parent.imageUploadDone(null);
-            } else {
-                var parentDoc = window.parent.document;
-                var modals = parentDoc.querySelectorAll('.modal.show');
-                for (var i = 0; i < modals.length; i++) {
-                    var bsModal = window.parent.bootstrap.Modal.getInstance(modals[i]);
-                    if (bsModal) bsModal.hide();
-                }
-            }
-        }
     </script>
 {% endblock %}

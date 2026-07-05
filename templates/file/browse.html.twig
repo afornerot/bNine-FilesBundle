@@ -21,9 +21,7 @@
                     <div class="btn-group mb-2 mb-md-0" role="group">
                         <button type="button"
                             class="btn btn-info"
-                            data-bs-toggle="modal"
-                            data-bs-target="#mymodalupload-{{ domain }}-{{ id|e('html_attr') }}"
-                            onclick="ModalLoad('mymodalupload-{{ domain }}-{{ id|e('html_attr') }}','Upload','{{ path('bninefiles_files_uploadmodal',{domain:domain, id:id,path:path}) }}');"
+                            onclick="BnineModalOpen({id:'mymodalupload-{{ domain }}-{{ id|e('html_attr') }}',title:'Upload',url:'{{ path('bninefiles_files_uploadmodal',{domain:domain, id:id,path:path}) }}',height:'600px',onClose:function(){var c='file-browser-{{ domain }}-{{ id|e('html_attr') }}';var p=$('#'+c).data('current-path')||'';$.get('{{ path('bninefiles_files',{domain:domain,id:id,editable:editable,compact:compact?1:null}) }}',{path:p},function(h){var $d=$('<div>').html(h);$d.find('#'+c).length&&$('#'+c).replaceWith($d.find('#'+c))})}});"
                             title="Téléverser un fichier">
                             <i class="fas fa-upload me-1"></i> Upload
                         </button>
@@ -110,20 +108,6 @@
     </div>
     {% endif %}
 
-    <div id="mymodalupload-{{ domain }}-{{ id|e('html_attr') }}" class="modal" tabindex="-1">
-        <div class="modal-dialog modal-lg">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h4 class="modal-title">INFORMATION</h4>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <iframe id="framemodal" frameborder=0 width="100%" height="600px"></iframe>
-                </div>
-            </div>
-        </div>
-    </div>               
-
     <div id="mymodaldir-{{ domain }}-{{ id|e('html_attr') }}" class="modal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -207,13 +191,6 @@ $(function () {
     const containerId = 'file-browser-{{ domain }}-{{ id|e('html_attr') }}';
     const $browser = $('#' + containerId);
     initFileBrowser($browser);
-
-    // Rafraîchir après fermeture modale upload
-    $('#mymodalupload-{{ domain }}-{{ id|e('html_attr') }}').on('hidden.bs.modal', function () {
-        const $browser = $('#' + containerId);
-        const currentPath = $browser.data('current-path') || '';
-        refreshContainer(containerId, currentPath);
-    });
 
     // Focus sur creation de répertoire
     $('#mymodaldir-{{ domain }}-{{ id|e('html_attr') }}').on('shown.bs.modal', function () {

@@ -9,11 +9,11 @@
 {% block body %}
     <div class="d-flex gap-2 mb-2">
         <button type="button" class="btn btn-success btn-sm" id="cropSubmit"><i class="fas fa-check"></i> Valider</button>
-        <a class="btn btn-secondary btn-sm" onClick="closeModal();"><i class="fas fa-times"></i> Annuler</a>
+        <a class="btn btn-secondary btn-sm" onclick="window.parent.BnineModalClose();"><i class="fas fa-times"></i> Annuler</a>
     </div>
 
     <div id="preview" style="overflow:hidden; width:90px; height:90px; position:absolute; top:10px; right:10px; border:1px solid #ccc; border-radius:4px;">
-        <img src="" style="position:relative;" alt="Preview" />
+        <img src="{{ image }}" style="position:relative;" alt="Preview" />
     </div>
 
     <div style="margin-top:10px;">
@@ -23,58 +23,75 @@
 
 {% block localscript %}
     <script>
+        var naturalWidth = 0;
+        var naturalHeight = 0;
+
         function preview(img, selection) {
-            var scaleX = 90 / selection.width;
-            var scaleY = 90 / selection.height;
+            if (!selection.width || !selection.height) return;
+            var $largeImg = $('#largeimg');
+            var displayedWidth = $largeImg.width();
+            var displayedHeight = $largeImg.height();
+            var ratioX = naturalWidth / displayedWidth;
+            var ratioY = naturalHeight / displayedHeight;
+
+            var cropW = selection.width * ratioX;
+            var cropH = selection.height * ratioY;
+
+            var scale = Math.min(90 / cropW, 90 / cropH);
+
             $('#preview img').css({
-                width: Math.round(scaleX * $('#largeimg').width()) + 'px',
-                height: Math.round(scaleY * $('#largeimg').height()) + 'px',
-                marginLeft: '-' + Math.round(scaleX * selection.x1) + 'px',
-                marginTop: '-' + Math.round(scaleY * selection.y1) + 'px'
+                width: Math.round(naturalWidth * scale) + 'px',
+                height: Math.round(naturalHeight * scale) + 'px',
+                marginLeft: '-' + Math.round(selection.x1 * ratioX * scale) + 'px',
+                marginTop: '-' + Math.round(selection.y1 * ratioY * scale) + 'px'
             });
-            $('#crop_x1').val(selection.x1);
-            $('#crop_y1').val(selection.y1);
-            $('#crop_w').val(selection.width);
-            $('#crop_h').val(selection.height);
         }
 
-        function closeModal() {
-            var parentDoc = window.parent.document;
-            var modals = parentDoc.querySelectorAll('.modal.show');
-            for (var i = 0; i < modals.length; i++) {
-                var bsModal = window.parent.bootstrap.Modal.getInstance(modals[i]);
-                if (bsModal) bsModal.hide();
+        $(document).ready(function () {
+            var $img = $('#largeimg');
+
+            $img.on('load', function () {
+                naturalWidth = this.naturalWidth;
+                naturalHeight = this.naturalHeight;
+            });
+
+            if ($img[0].complete) {
+                naturalWidth = $img[0].naturalWidth;
+                naturalHeight = $img[0].naturalHeight;
             }
-        }
 
-        $(window).on("load", function () {
-            $('#largeimg').imgAreaSelect({ aspectRatio: '1:1', onSelectChange: preview, x1: 0, y1: 0, x2: 0, y2: 0 });
+            $img.imgAreaSelect({
+                aspectRatio: '1:1',
+                onSelectChange: preview,
+                x1: 0, y1: 0, x2: 0, y2: 0
+            });
 
             $('#cropSubmit').on('click', function () {
-                var x1 = $('#crop_x1').val();
-                var y1 = $('#crop_y1').val();
-                var w = $('#crop_w').val();
-                var h = $('#crop_h').val();
+                var ias = $img.imgAreaSelect({ instance: true });
+                var sel = ias.getSelection();
 
-                if (!w || !h || parseInt(w) <= 0) {
+                if (!sel || sel.width <= 0 || sel.height <= 0) {
                     alert('Veuillez sélectionner une zone de crop.');
                     return;
                 }
+
+                var ratioX = naturalWidth / $img.width();
+                var ratioY = naturalHeight / $img.height();
 
                 $.ajax({
                     url: '{{ path("bninefiles_files_crop", {domain: domain, id: id}) }}',
                     method: 'POST',
                     data: {
                         path: '{{ filePath }}',
-                        x1: x1, y1: y1, w: w, h: h,
+                        x1: Math.round(sel.x1 * ratioX),
+                        y1: Math.round(sel.y1 * ratioY),
+                        w: Math.round(sel.width * ratioX),
+                        h: Math.round(sel.height * ratioY),
                         size: 150
                     },
                     success: function (response) {
                         if (response.success) {
-                            if (typeof window.parent.imageUploadDone === 'function') {
-                                window.parent.imageUploadDone(response.path);
-                            }
-                            closeModal();
+                            window.parent.imageUploadDone(response.path, response.url);
                         }
                     },
                     error: function () {
@@ -84,9 +101,4 @@
             });
         });
     </script>
-
-    <input type="hidden" id="crop_x1" value="0">
-    <input type="hidden" id="crop_y1" value="0">
-    <input type="hidden" id="crop_w" value="0">
-    <input type="hidden" id="crop_h" value="0">
 {% endblock %}
