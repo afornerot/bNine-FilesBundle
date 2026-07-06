@@ -94,8 +94,8 @@
                             window.parent.imageUploadDone(response.path, response.url);
                         }
                     },
-                    error: function () {
-                        alert('Erreur lors du crop.');
+                    error: function (xhr) {
+                        alert('Erreur lors du crop.\n' + (xhr.responseText || xhr.statusText));
                     }
                 });
             });
