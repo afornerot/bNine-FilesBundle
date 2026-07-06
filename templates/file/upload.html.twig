@@ -46,7 +46,7 @@
                     window.parent.BnineModalClose();
                 }
                 {% else %}
-                window.parent.BnineModalClose();
+                window.parent.imageUploadDone('{{ path }}/' + lastUploadedFilename);
                 {% endif %}
             }
         };

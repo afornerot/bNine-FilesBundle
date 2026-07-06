@@ -1,6 +1,7 @@
 //== BnineFilesBundle - Simple Modal System ====================================
 var _bnineCurrentInput = null;
 var _bnineActiveModal = null;
+var _bnineOnCloseCallback = null;
 
 function BnineModalOpen(opts) {
     BnineModalClose();
@@ -9,6 +10,7 @@ function BnineModalOpen(opts) {
     var title = opts.title || '';
     var url = opts.url || '';
     var height = opts.height || '600px';
+    _bnineOnCloseCallback = opts.onClose || null;
 
     var overlay = document.createElement('div');
     overlay.className = 'bnine-overlay';
@@ -41,14 +43,19 @@ function BnineModalOpen(opts) {
 }
 
 function BnineModalClose() {
+    var onCloseCb = _bnineOnCloseCallback;
     var overlays = document.querySelectorAll('.bnine-overlay');
     overlays.forEach(function (el) {
         el.classList.remove('bnine-overlay-open');
         setTimeout(function () { el.remove(); }, 200);
     });
     _bnineActiveModal = null;
+    _bnineOnCloseCallback = null;
     _bnineCurrentInput = null;
     document.dispatchEvent(new Event('bnine-modal-closed'));
+    if (typeof onCloseCb === 'function') {
+        onCloseCb();
+    }
 }
 
 //== Icon Upload Widget =======================================================
@@ -91,11 +98,16 @@ $(document).ready(function () {
 });
 
 window.imageUploadDone = function (filepath, fileUrl) {
-    if (fileUrl && _bnineCurrentInput) {
+    var value = fileUrl || filepath;
+    if (value && _bnineCurrentInput) {
         var $input = $('#' + _bnineCurrentInput);
         var $wrapper = $input.closest('.icon-wrapper');
-        $input.val(fileUrl).trigger('change');
-        $wrapper.find('img').first().attr('src', fileUrl).show();
+        if ($wrapper.length) {
+            $input.val(value).trigger('change');
+            $wrapper.find('img').first().attr('src', value).show();
+        } else {
+            $input.val(value).trigger('change');
+        }
     }
     BnineModalClose();
 };

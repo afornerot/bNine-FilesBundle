@@ -476,12 +476,7 @@ class FileController extends AbstractController
             throw $this->createNotFoundException('Fichier non spécifié.');
         }
 
-        if ($this->fileService->isS3()) {
-            $storagePath = $this->fileService->getRelativePath($domain, (string) $id, $filePath);
-            $image = $this->fileService->getStorage()->publicUrl($storagePath);
-        } else {
-            $image = '/bninefiles/image/'.$domain.'/'.$id.'?path='.$filePath;
-        }
+        $image = '/bninefiles/image/'.$domain.'/'.$id.'?path='.$filePath;
 
         return $this->render('@BnineFilesBundle/file/crop.html.twig', [
             'domain' => $domain,
