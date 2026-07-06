@@ -355,8 +355,8 @@ class FileController extends AbstractController
                         mkdir($tmpDir, 0775, true);
                     }
 
-                    $tmpSource = tempnam($tmpDir, 'src_');
-                    $tmpThumb = tempnam($tmpDir, 'thumb_');
+                    $tmpSource = tempnam($tmpDir, 'src_').'.'.$ext;
+                    $tmpThumb = tempnam($tmpDir, 'thumb_').'.'.$ext;
 
                     $stream = $this->fileService->getStorage()->readStream($storagePath);
                     file_put_contents($tmpSource, stream_get_contents($stream));
@@ -517,8 +517,8 @@ class FileController extends AbstractController
                 mkdir($tmpDir, 0775, true);
             }
 
-            $tmpSource = tempnam($tmpDir, 'src_');
-            $tmpThumb = tempnam($tmpDir, 'crop_');
+            $tmpSource = tempnam($tmpDir, 'src_').'.'.$ext;
+            $tmpThumb = tempnam($tmpDir, 'crop_').'.'.$ext;
 
             $stream = $this->fileService->getStorage()->readStream($storagePath);
             file_put_contents($tmpSource, stream_get_contents($stream));
