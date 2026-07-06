@@ -11,6 +11,7 @@ function BnineModalOpen(opts) {
     var url = opts.url || '';
     var height = opts.height || '600px';
     _bnineOnCloseCallback = opts.onClose || null;
+    _bnineCurrentInput = opts.currentInput || null;
 
     var overlay = document.createElement('div');
     overlay.className = 'bnine-overlay';
@@ -79,7 +80,7 @@ $(document).ready(function () {
 
         if (uploadUrl) {
             var $btn = $('<a class="btn btn-info" style="max-width:100%; margin-bottom:15px;"></a>');
-            $btn.attr('onclick', "BnineModalOpen({id:'bnine-modal-" + $id + "',title:'" + label + "',url:'" + uploadUrl + "'});_bnineCurrentInput='" + $id + "';");
+            $btn.attr('onclick', "BnineModalOpen({id:'bnine-modal-" + $id + "',title:'" + label + "',url:'" + uploadUrl + "',currentInput:'" + $id + "'});");
             $btn.attr('title', 'Ajouter ' + label);
             $btn.text('Modifier');
             $input.parent().append($btn);

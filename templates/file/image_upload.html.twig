@@ -23,12 +23,12 @@
         var domain = '{{ attr["data-domain"] }}';
 
         $wrapper.find('.image-upload-btn').on('click', function() {
-            _bnineCurrentInput = '{{ id }}';
             BnineModalOpen({
                 id: 'image-upload-' + entityId,
                 title: 'Uploader une image',
                 url: uploadUrl,
                 height: '600px',
+                currentInput: '{{ id }}',
                 onClose: function() {
                     var val = $wrapper.find('input[type="hidden"]').val();
                     if (val) {
