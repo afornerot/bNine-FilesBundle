@@ -1,55 +1,17 @@
 {% set compact = compact|default(false) %}
+{% set select = select|default('') %}
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css">
-
-<style>
-    .file-gallery-grid {
-        columns: 4 200px;
-        column-gap: 0.75rem;
-    }
-    .file-gallery-item {
-        position: relative;
-        border-radius: 0.375rem;
-        overflow: hidden;
-        background: #f8f9fa;
-        break-inside: avoid;
-        margin-bottom: 0.75rem;
-    }
-    .file-gallery-item img {
-        width: 100%;
-        height: auto;
-        display: block;
-    }
-    .file-gallery-item .file-gallery-delete {
-        position: absolute;
-        top: 0.25rem;
-        right: 0.25rem;
-        opacity: 0;
-        transition: opacity 0.2s;
-    }
-    .file-gallery-item:hover .file-gallery-delete {
-        opacity: 1;
-    }
-    .file-gallery-file {
-        display: flex;
-        align-items: center;
-        padding: 0.5rem 0.75rem;
-        text-decoration: none;
-        color: inherit;
-    }
-    .file-gallery-file:hover {
-        background: #f8f9fa;
-    }
-</style>
 
 <div id="file-gallery-{{ domain }}-{{ id|e('html_attr') }}"
      class="file-gallery"
      data-domain="{{ domain }}"
      data-id="{{ id }}"
-     data-base-path="{{ path('bninefiles_files_gallery', { domain: domain, id: id, editable: editable, compact: compact ? 1 : null }) }}"
+     data-base-path="{{ path('bninefiles_files_gallery', { domain: domain, id: id, editable: editable, compact: compact ? 1 : null, select: select ?: null }) }}"
      data-current-path="{{ path }}"
      data-delete-url="{{ path('bninefiles_files_delete', { domain: domain, id: id }) }}"
      data-mkdir-url="{{ path('bninefiles_files_mkdir', { domain: domain, id: id }) }}"
+     data-select="{{ select }}"
     >
 
     {% if not compact %}
@@ -58,12 +20,23 @@
         <div class="card-body">
     {% endif %}
 
-            {% if editable %}
+            {% if select and not compact %}
+                <div class="alert alert-info mb-3 py-2">
+                    <i class="fas fa-info-circle me-1"></i>
+                    {% if select == 'multiple' %}
+                        Sélectionnez les images souhaitées puis cliquez sur <strong>Valider</strong>.
+                    {% else %}
+                        Cliquez sur une image pour la sélectionner.
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if editable and not select %}
                 <div class="mb-3 d-flex align-items-center justify-content-between flex-wrap">
                     <div class="btn-group mb-2 mb-md-0" role="group">
                         <button type="button"
                             class="btn btn-info"
-                            onclick="BnineModalOpen({id:'mymodalupload-{{ domain }}-{{ id|e('html_attr') }}',title:'Upload images',url:'{{ path('bninefiles_files_uploadmodal',{domain:domain, id:id,path:path,imageOnly:1}) }}',height:'600px',onClose:function(){var c='file-gallery-{{ domain }}-{{ id|e('html_attr') }}';var p=$('#'+c).data('current-path')||'';$.get('{{ path('bninefiles_files_gallery',{domain:domain,id:id,editable:editable,compact:compact?1:null}) }}',{path:p},function(h){var $d=$('<div>').html(h);$d.find('#'+c).length&&$('#'+c).replaceWith($d.find('#'+c))})}});"
+                            onclick="BnineModalOpen({id:'mymodalupload-{{ domain }}-{{ id|e('html_attr') }}',title:'Upload images',url:'{{ path('bninefiles_files_uploadmodal',{domain:domain, id:id,path:path,imageOnly:1}) }}',height:'600px',onClose:function(){var c='file-gallery-{{ domain }}-{{ id|e('html_attr') }}';var p=$('#'+c).data('current-path')||'';$.get('{{ path('bninefiles_files_gallery',{domain:domain,id:id,editable:editable,compact:compact?1:null,select:select?:null}) }}',{path:p},function(h){var $d=$('<div>').html(h);$d.find('#'+c).length&&$('#'+c).replaceWith($d.find('#'+c))})}});"
                             title="Téléverser des images">
                             <i class="fas fa-upload me-1"></i> Upload
                         </button>
@@ -119,30 +92,45 @@
                             <a href="#" class="gallery-nav text-decoration-none fw-semibold p-3" data-path="{{ path ? path ~ '/' ~ file.name : file.name }}">
                                 <i class="fas fa-folder text-warning me-2"></i>{{ file.name }}/
                             </a>
-                        </div>
-                    {% else %}
-                        <div class="file-gallery-item">
-                            <a href="{{ path('bninefiles_files_image', { domain: domain, id: id, path: file.path }) }}"
-                               class="glightbox"
-                               data-gallery="gallery-{{ domain }}-{{ id }}"
-                               data-description="{{ file.name }}">
-                                <img src="{{ path('bninefiles_files_thumbnail', { domain: domain, id: id, path: file.path }) }}"
-                                     alt="{{ file.name }}"
-                                     loading="lazy">
-                            </a>
-                            {% if editable %}
-                                <button class="btn btn-sm btn-danger file-gallery-delete btn-delete" data-path="{{ file.path }}" title="Supprimer">
+                            {% if editable and not select %}
+                                <button class="btn btn-sm btn-danger file-gallery-delete btn-delete" data-path="{{ file.path }}" title="Supprimer le dossier">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             {% endif %}
                         </div>
+                    {% else %}
+                            {% if select %}
+                            <div class="file-gallery-item selectable"
+                                 data-file-url="{{ path('bninefiles_files_image', { domain: domain, id: id, path: file.path }) }}" data-file-path="{{ file.path }}" data-file-name="{{ file.name }}">
+                                <div class="select-checkbox"><i class="fas fa-check"></i></div>
+                                <div class="select-overlay"><i class="fas fa-check-circle text-white fa-2x"></i></div>
+                                <img src="{{ path('bninefiles_files_thumbnail', { domain: domain, id: id, path: file.path }) }}"
+                                     alt="{{ file.name }}"
+                                     loading="lazy">
+                            </div>
+                            {% else %}
+                            <div class="file-gallery-item">
+                                <a href="{{ path('bninefiles_files_image', { domain: domain, id: id, path: file.path }) }}"
+                                   class="glightbox"
+                                   data-gallery="gallery-{{ domain }}-{{ id }}"
+                                   data-description="{{ file.name }}">
+                                    <img src="{{ path('bninefiles_files_thumbnail', { domain: domain, id: id, path: file.path }) }}"
+                                         alt="{{ file.name }}"
+                                         loading="lazy">
+                                </a>
+                                {% if editable %}
+                                    <button class="btn btn-sm btn-danger file-gallery-delete btn-delete" data-path="{{ file.path }}" title="Supprimer">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
+                            {% endif %}
                     {% endif %}
                 {% else %}
                     <div class="text-muted p-3"><em>Aucune image</em></div>
                 {% endfor %}
             </div>
 
-            {# Fichiers non-image s'il y en a #}
             {% set nonImageFiles = [] %}
             {% for file in allFiles %}
                 {% if not file.isDirectory %}
@@ -184,6 +172,14 @@
     </div>
     {% endif %}
 
+    {% if select == 'multiple' %}
+    <div class="mt-3 d-flex justify-content-end">
+        <button type="button" class="btn btn-success btn-validate-selection" disabled>
+            <i class="fas fa-check me-1"></i>Valider (<span class="selection-count">0</span>)
+        </button>
+    </div>
+    {% endif %}
+
     <div id="mymodaldir-{{ domain }}-{{ id|e('html_attr') }}" class="modal" tabindex="-1">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -209,11 +205,16 @@
 
 <script>
 $(function () {
-    var lightbox = GLightbox({
-        loop: true,
-        touchNavigation: true,
-        preload: true
-    });
+    var selectMode = '{{ select }}';
+
+    var lightbox = null;
+    if (!selectMode) {
+        lightbox = GLightbox({
+            loop: true,
+            touchNavigation: true,
+            preload: true
+        });
+    }
 
     function refreshContainer(containerId, path) {
         const $oldContainer = $('#' + containerId);
@@ -225,7 +226,7 @@ $(function () {
             if ($newContainer.length) {
                 $oldContainer.replaceWith($newContainer);
                 initGallery($newContainer);
-                lightbox.reload();
+                if (lightbox) lightbox.reload();
             }
         });
     }
@@ -234,12 +235,6 @@ $(function () {
         const containerId = $container.attr('id');
 
         $container.off('click');
-
-        $container.on('click', '.gallery-nav', function (e) {
-            e.preventDefault();
-            const path = $(this).data('path');
-            refreshContainer(containerId, path);
-        });
 
         $container.on('click', '.btn-delete', function (e) {
             e.preventDefault();
@@ -314,6 +309,63 @@ $(function () {
             }
         });
     });
+});
+
+// Delegated events for select mode - works even when loaded via AJAX
+$(document).off('click.bninefilenav', '.gallery-nav').on('click.bninefilenav', '.gallery-nav', function (e) {
+    e.preventDefault();
+    var path = $(this).data('path');
+    var $gallery = $(this).closest('.file-gallery');
+    var containerId = $gallery.attr('id');
+    var base = $gallery.data('base-path');
+
+    $.get(base, { path: path }, function (html) {
+        var $doc = $('<div>').html(html);
+        var $newContainer = $doc.find('#' + containerId);
+        if ($newContainer.length) {
+            $gallery.replaceWith($newContainer);
+        }
+    });
+});
+
+$(document).off('click.bninefileselect', '.file-gallery-item.selectable').on('click.bninefileselect', '.file-gallery-item.selectable', function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    var $item = $(this);
+    var $gallery = $item.closest('.file-gallery');
+    var isMultiple = $gallery.find('.btn-validate-selection').length > 0;
+
+    if (isMultiple) {
+        $item.toggleClass('selected');
+        var count = $gallery.find('.file-gallery-item.selectable.selected').length;
+        $gallery.find('.selection-count').text(count);
+        $gallery.find('.btn-validate-selection').prop('disabled', count === 0);
+    } else {
+        var data = {
+            url: $item.data('file-url'),
+            path: $item.data('file-path'),
+            name: $item.data('file-name')
+        };
+        if (typeof window.bnineFileSelect === 'function') {
+            window.bnineFileSelect(data);
+        }
+    }
+});
+
+$(document).off('click.bninefilevalidate', '.btn-validate-selection').on('click.bninefilevalidate', '.btn-validate-selection', function (e) {
+    e.preventDefault();
+    var $gallery = $(this).closest('.file-gallery');
+    var items = [];
+    $gallery.find('.file-gallery-item.selectable.selected').each(function () {
+        items.push({
+            url: $(this).data('file-url'),
+            path: $(this).data('file-path'),
+            name: $(this).data('file-name')
+        });
+    });
+    if (items.length > 0 && typeof window.bnineFileSelect === 'function') {
+        window.bnineFileSelect(items);
+    }
 });
 </script>
 

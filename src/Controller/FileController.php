@@ -232,6 +232,7 @@ class FileController extends AbstractController
 
         $relativePath = $request->query->get('path', '');
         $compact = $request->query->has('compact');
+        $select = $request->query->get('select', '');
 
         try {
             $allFiles = $this->fileService->list($domain, (string) $id, $relativePath);
@@ -253,6 +254,7 @@ class FileController extends AbstractController
                 'path' => $relativePath,
                 'editable' => $editable,
                 'compact' => $compact,
+                'select' => $select,
             ]);
         } catch (\Exception $e) {
             $this->addFlash('danger', $e->getMessage());
