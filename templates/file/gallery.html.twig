@@ -31,12 +31,29 @@
                 </div>
             {% endif %}
 
-            {% if editable and not select %}
+            {% if select %}
+                <div class="alert alert-info mb-3 py-2">
+                    <i class="fas fa-info-circle me-1"></i>
+                    {% if select == 'multiple' %}
+                        Sélectionnez les images souhaitées puis cliquez sur <strong>Valider</strong>.
+                    {% else %}
+                        Cliquez sur une image pour la sélectionner.
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if editable %}
                 <div class="mb-3 d-flex align-items-center justify-content-between flex-wrap">
                     <div class="btn-group mb-2 mb-md-0" role="group">
                         <button type="button"
-                            class="btn btn-info"
-                            onclick="BnineModalOpen({id:'mymodalupload-{{ domain }}-{{ id|e('html_attr') }}',title:'Upload images',url:'{{ path('bninefiles_files_uploadmodal',{domain:domain, id:id,path:path,imageOnly:1}) }}',height:'600px',onClose:function(){var c='file-gallery-{{ domain }}-{{ id|e('html_attr') }}';var p=$('#'+c).data('current-path')||'';$.get('{{ path('bninefiles_files_gallery',{domain:domain,id:id,editable:editable,compact:compact?1:null,select:select?:null}) }}',{path:p},function(h){var $d=$('<div>').html(h);$d.find('#'+c).length&&$('#'+c).replaceWith($d.find('#'+c))})}});"
+                            class="btn btn-info bnine-upload-btn"
+                            data-upload-url="{{ path('bninefiles_files_uploadmodal',{domain:domain, id:id,path:path,imageOnly:1}) }}"
+                            data-gallery-id="file-gallery-{{ domain }}-{{ id|e('html_attr') }}"
+                            data-domain="{{ domain }}"
+                            data-id="{{ id }}"
+                            data-path="{{ path }}"
+                            data-compact="{{ compact ? 1 : 0 }}"
+                            data-select="{{ select }}"
                             title="Téléverser des images">
                             <i class="fas fa-upload me-1"></i> Upload
                         </button>
@@ -106,6 +123,7 @@
                                 <div class="select-overlay"><i class="fas fa-check-circle text-white fa-2x"></i></div>
                                 <img src="{{ path('bninefiles_files_thumbnail', { domain: domain, id: id, path: file.path }) }}"
                                      alt="{{ file.name }}"
+                                     title="{{ file.name }}"
                                      loading="lazy">
                             </div>
                             {% else %}
@@ -366,6 +384,44 @@ $(document).off('click.bninefilevalidate', '.btn-validate-selection').on('click.
     if (items.length > 0 && typeof window.bnineFileSelect === 'function') {
         window.bnineFileSelect(items);
     }
+});
+
+// Delegated event for upload button - works even when loaded via AJAX
+$(document).off('click.bnineupload', '.bnine-upload-btn').on('click.bnineupload', '.bnine-upload-btn', function (e) {
+    e.preventDefault();
+    var $btn = $(this);
+    var url = $btn.data('upload-url');
+    var galleryId = $btn.data('gallery-id');
+    var domain = $btn.data('domain');
+    var id = $btn.data('id');
+    var path = $btn.data('path') || '';
+    var compact = $btn.data('compact');
+    var select = $btn.data('select');
+
+    BnineModalOpen({
+        id: 'mymodalupload-' + domain + '-' + id,
+        title: 'Upload images',
+        url: url,
+        height: '600px'
+    });
+});
+
+// Listen for modal close to refresh gallery
+$(document).on('bnine-modal-closed', function () {
+    $('.file-gallery').each(function () {
+        var $gallery = $(this);
+        var galleryId = $gallery.attr('id');
+        var base = $gallery.data('base-path');
+        var currentPath = $gallery.data('current-path') || '';
+
+        $.get(base, { path: currentPath }, function (html) {
+            var $doc = $('<div>').html(html);
+            var $newContainer = $doc.find('#' + galleryId);
+            if ($newContainer.length) {
+                $gallery.replaceWith($newContainer);
+            }
+        });
+    });
 });
 </script>
 

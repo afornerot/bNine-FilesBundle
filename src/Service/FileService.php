@@ -70,6 +70,13 @@ class FileService
             $path = $domain.'/'.$id.'/'.ltrim($relativePath, '/');
 
             if ($this->storage->fileExists($path)) {
+                // Delete thumbnail if it exists (thumbnails are always in the entity root _thumbs)
+                $filename = pathinfo($path, PATHINFO_FILENAME);
+                $ext = pathinfo($path, PATHINFO_EXTENSION);
+                $thumbPath = $domain.'/'.$id.'/_thumbs/300xN/'.$filename.'.'.$ext;
+                if ($this->storage->fileExists($thumbPath)) {
+                    $this->storage->delete($thumbPath);
+                }
                 $this->storage->delete($path);
             } elseif ($this->storage->directoryExists($path)) {
                 $this->storage->deleteDirectory($path);
@@ -87,6 +94,15 @@ class FileService
 
         $fs = new Filesystem();
         try {
+            // Delete thumbnail if it exists (thumbnails are always in the entity root _thumbs)
+            if (is_file($targetPath)) {
+                $filename = pathinfo($targetPath, PATHINFO_FILENAME);
+                $ext = pathinfo($targetPath, PATHINFO_EXTENSION);
+                $thumbPath = $baseEntityPath.'/_thumbs/300xN/'.$filename.'.'.$ext;
+                if (file_exists($thumbPath)) {
+                    $fs->remove($thumbPath);
+                }
+            }
             $fs->remove($targetPath);
         } catch (IOExceptionInterface $e) {
             throw new \RuntimeException('Erreur lors de la suppression : '.$e->getMessage());
