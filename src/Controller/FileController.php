@@ -374,15 +374,10 @@ class FileController extends AbstractController
                     $image = $imagine->open($tmpSource);
                     $size = $image->getSize();
 
-                    if ($size->getWidth() >= $size->getHeight()) {
-                        $ratio = $minSize / $size->getWidth();
-                        $height = (int) ($size->getHeight() * $ratio);
-                        $thumbWidth = $minSize;
-                    } else {
-                        $ratio = $minSize / $size->getHeight();
-                        $thumbWidth = (int) ($size->getWidth() * $ratio);
-                        $height = $minSize;
-                    }
+                    $minDim = min($size->getWidth(), $size->getHeight());
+                    $ratio = $minSize / $minDim;
+                    $thumbWidth = (int) ($size->getWidth() * $ratio);
+                    $height = (int) ($size->getHeight() * $ratio);
 
                     $image->resize(new \Imagine\Image\Box($thumbWidth, $height))
                         ->strip()
@@ -451,15 +446,10 @@ class FileController extends AbstractController
                 $image = $imagine->open($absolutePath);
                 $size = $image->getSize();
 
-                if ($size->getWidth() >= $size->getHeight()) {
-                    $ratio = $minSize / $size->getWidth();
-                    $height = (int) ($size->getHeight() * $ratio);
-                    $thumbWidth = $minSize;
-                } else {
-                    $ratio = $minSize / $size->getHeight();
-                    $thumbWidth = (int) ($size->getWidth() * $ratio);
-                    $height = $minSize;
-                }
+                $minDim = min($size->getWidth(), $size->getHeight());
+                $ratio = $minSize / $minDim;
+                $thumbWidth = (int) ($size->getWidth() * $ratio);
+                $height = (int) ($size->getHeight() * $ratio);
 
                 $image->resize(new \Imagine\Image\Box($thumbWidth, $height))
                     ->strip()
