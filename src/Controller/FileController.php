@@ -203,7 +203,7 @@ class FileController extends AbstractController
                 $filename
             ));
             $response->headers->set('Content-Length', $this->fileService->getStorage()->fileSize($storagePath));
-            $response->setMaxAge(86400);
+            $response->setMaxAge(86400 * 30);
 
             return $response;
         }
@@ -320,7 +320,7 @@ class FileController extends AbstractController
             $response->headers->set('Content-Type', $mimeType);
         }
 
-        $response->setMaxAge(86400);
+        $response->setMaxAge(86400 * 30);
         $response->setPublic();
 
         return $response;
