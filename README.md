@@ -152,6 +152,6 @@ uploads/                          # Racine du stockage
   {domain}/                       # ex: blog, pagewidgetfile
     {id}/                         # ID de l'entité
       {fichier.jpg}               # Fichiers uploadés
-      _thumbs/300xN/              # Thumbnails auto-générés
+      _thumbs/300xN/              # Thumbnails auto-générés (min 300px sur la plus petite dimension)
       _thumbs/{size}x{size}/      # Thumbnails de crop
 ```

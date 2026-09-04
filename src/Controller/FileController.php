@@ -296,6 +296,7 @@ class FileController extends AbstractController
             $response->headers->set('Content-Type', $mimeType ?: 'application/octet-stream');
             $response->headers->set('Content-Disposition', ResponseHeaderBag::DISPOSITION_INLINE);
             $response->setMaxAge(86400);
+            $response->setPublic();
 
             return $response;
         }
@@ -320,6 +321,7 @@ class FileController extends AbstractController
         }
 
         $response->setMaxAge(86400);
+        $response->setPublic();
 
         return $response;
     }
@@ -330,13 +332,13 @@ class FileController extends AbstractController
         $this->denyAccessUnlessGranted(AbstractFileVoter::VIEW, [$domain, $id]);
 
         $filePath = $request->query->get('path');
-        $width = 300;
+        $minSize = 300;
 
         if (!$filePath) {
             throw $this->createNotFoundException('Fichier non spécifié.');
         }
 
-        $thumbSubPath = '_thumbs/'.$width.'xN';
+        $thumbSubPath = '_thumbs/'.$minSize.'xN';
         $filename = pathinfo($filePath, PATHINFO_FILENAME);
         $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
         $thumbFilename = $filename.'.'.$ext;
@@ -367,10 +369,18 @@ class FileController extends AbstractController
                     $imagine = new Imagine();
                     $image = $imagine->open($tmpSource);
                     $size = $image->getSize();
-                    $ratio = $width / $size->getWidth();
-                    $height = (int) ($size->getHeight() * $ratio);
 
-                    $image->resize(new \Imagine\Image\Box($width, $height))
+                    if ($size->getWidth() >= $size->getHeight()) {
+                        $ratio = $minSize / $size->getWidth();
+                        $height = (int) ($size->getHeight() * $ratio);
+                        $thumbWidth = $minSize;
+                    } else {
+                        $ratio = $minSize / $size->getHeight();
+                        $thumbWidth = (int) ($size->getWidth() * $ratio);
+                        $height = $minSize;
+                    }
+
+                    $image->resize(new \Imagine\Image\Box($thumbWidth, $height))
                         ->strip()
                         ->save($tmpThumb, ['quality' => 85]);
 
@@ -408,6 +418,7 @@ class FileController extends AbstractController
             $response->headers->set('Content-Type', $mimeType ?: 'application/octet-stream');
             $response->headers->set('Content-Disposition', ResponseHeaderBag::DISPOSITION_INLINE);
             $response->setMaxAge(86400 * 30);
+            $response->setPublic();
 
             return $response;
         }
@@ -423,22 +434,30 @@ class FileController extends AbstractController
             throw $this->createNotFoundException('Fichier introuvable.');
         }
 
-        $thumbDir = $basePath.'/_thumbs/'.$width.'xN';
-        if (!is_dir($thumbDir)) {
-            mkdir($thumbDir, 0775, true);
-        }
-
+        $thumbDir = $basePath.'/_thumbs/'.$minSize.'xN';
         $thumbPath = $thumbDir.'/'.$thumbFilename;
 
         if (!file_exists($thumbPath)) {
+            if (!is_dir($thumbDir)) {
+                mkdir($thumbDir, 0775, true);
+            }
+
             try {
                 $imagine = new Imagine();
                 $image = $imagine->open($absolutePath);
                 $size = $image->getSize();
-                $ratio = $width / $size->getWidth();
-                $height = (int) ($size->getHeight() * $ratio);
 
-                $image->resize(new \Imagine\Image\Box($width, $height))
+                if ($size->getWidth() >= $size->getHeight()) {
+                    $ratio = $minSize / $size->getWidth();
+                    $height = (int) ($size->getHeight() * $ratio);
+                    $thumbWidth = $minSize;
+                } else {
+                    $ratio = $minSize / $size->getHeight();
+                    $thumbWidth = (int) ($size->getWidth() * $ratio);
+                    $height = $minSize;
+                }
+
+                $image->resize(new \Imagine\Image\Box($thumbWidth, $height))
                     ->strip()
                     ->save($thumbPath, ['quality' => 85]);
             } catch (\Exception $e) {
@@ -463,6 +482,7 @@ class FileController extends AbstractController
         }
 
         $response->setMaxAge(86400 * 30);
+        $response->setPublic();
 
         return $response;
     }
