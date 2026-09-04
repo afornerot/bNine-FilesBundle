@@ -64,19 +64,48 @@ class FileService
         return $this->listViaFilesystem($domain, $id, $relativePath);
     }
 
+    public function deleteThumbs(string $domain, string $id, string $relativePath): void
+    {
+        $filename = pathinfo($relativePath, PATHINFO_FILENAME);
+        $ext = pathinfo($relativePath, PATHINFO_EXTENSION);
+        $thumbFilename = $filename.'.'.$ext;
+
+        if ($this->isS3()) {
+            $thumbsBase = $domain.'/'.$id.'/_thumbs';
+
+            foreach (['300xN', '150x150', '200x200', '250x250', '400x400', '500x500'] as $dir) {
+                $thumbPath = $thumbsBase.'/'.$dir.'/'.$thumbFilename;
+                if ($this->storage->fileExists($thumbPath)) {
+                    $this->storage->delete($thumbPath);
+                }
+            }
+
+            return;
+        }
+
+        $baseEntityPath = $this->getEntityPath($domain, $id);
+        $thumbsBase = $baseEntityPath.'/_thumbs';
+
+        if (!is_dir($thumbsBase)) {
+            return;
+        }
+
+        $fs = new Filesystem();
+        foreach (glob($thumbsBase.'/*/'.$thumbFilename) as $thumbPath) {
+            if (is_file($thumbPath)) {
+                $fs->remove($thumbPath);
+            }
+        }
+    }
+
     public function delete(string $domain, string $id, string $relativePath): void
     {
+        $this->deleteThumbs($domain, $id, $relativePath);
+
         if ($this->isS3()) {
             $path = $domain.'/'.$id.'/'.ltrim($relativePath, '/');
 
             if ($this->storage->fileExists($path)) {
-                // Delete thumbnail if it exists (thumbnails are always in the entity root _thumbs)
-                $filename = pathinfo($path, PATHINFO_FILENAME);
-                $ext = pathinfo($path, PATHINFO_EXTENSION);
-                $thumbPath = $domain.'/'.$id.'/_thumbs/300xN/'.$filename.'.'.$ext;
-                if ($this->storage->fileExists($thumbPath)) {
-                    $this->storage->delete($thumbPath);
-                }
                 $this->storage->delete($path);
             } elseif ($this->storage->directoryExists($path)) {
                 $this->storage->deleteDirectory($path);
@@ -94,15 +123,6 @@ class FileService
 
         $fs = new Filesystem();
         try {
-            // Delete thumbnail if it exists (thumbnails are always in the entity root _thumbs)
-            if (is_file($targetPath)) {
-                $filename = pathinfo($targetPath, PATHINFO_FILENAME);
-                $ext = pathinfo($targetPath, PATHINFO_EXTENSION);
-                $thumbPath = $baseEntityPath.'/_thumbs/300xN/'.$filename.'.'.$ext;
-                if (file_exists($thumbPath)) {
-                    $fs->remove($thumbPath);
-                }
-            }
             $fs->remove($targetPath);
         } catch (IOExceptionInterface $e) {
             throw new \RuntimeException('Erreur lors de la suppression : '.$e->getMessage());

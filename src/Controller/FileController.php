@@ -110,6 +110,8 @@ class FileController extends AbstractController
 
             $storagePath = rtrim($dirPath, '/').'/'.$originalName;
 
+            $this->fileService->deleteThumbs($domain, $id, $relativePath.'/'.$originalName);
+
             $this->fileService->getStorage()->writeStream(
                 $storagePath,
                 fopen($file->getPathname(), 'rb')
@@ -120,6 +122,8 @@ class FileController extends AbstractController
             if (!is_dir($baseDir)) {
                 mkdir($baseDir, 0775, true);
             }
+
+            $this->fileService->deleteThumbs($domain, $id, $relativePath.'/'.$originalName);
 
             $file->move($baseDir, $originalName);
         }
