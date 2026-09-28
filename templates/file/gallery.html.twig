@@ -1,12 +1,32 @@
 {% set compact = compact|default(false) %}
 {% set select = select|default('') %}
+{% set _is_iframe = select != '' %}
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/glightbox/dist/css/glightbox.min.css">
+{# En mode iframe (select != vide), on charge les assets minimaux.
+   Sinon (rendu via render(controller(...))), l'app hote a deja tout charge
+   dans son layout principal. #}
+{% if _is_iframe %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% if select == 'multiple' %}Sélectionner des images{% else %}Sélectionner une image{% endif %}</title>
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/fontawesome.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/css/bninefiles.css') }}">
+    <script src="{{ asset('bundles/bninefiles/lib/js/jquery.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/lib/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/js/bninefiles.js') }}"></script>
+</head>
+<body>
+{% endif %}
 
 <div id="file-gallery-{{ domain }}-{{ id|e('html_attr') }}"
      class="file-gallery"
      data-domain="{{ domain }}"
      data-id="{{ id }}"
+     data-instance="gallery-{{ domain }}-{{ id }}-{{ editable ? 'write' : 'read' }}{{ select ? '-select-' ~ select : '' }}"
      data-base-path="{{ path('bninefiles_files_gallery', { domain: domain, id: id, editable: editable, compact: compact ? 1 : null, select: select ?: null }) }}"
      data-current-path="{{ path }}"
      data-delete-url="{{ path('bninefiles_files_delete', { domain: domain, id: id }) }}"
@@ -21,17 +41,6 @@
     {% endif %}
 
             {% if select and not compact %}
-                <div class="alert alert-info mb-3 py-2">
-                    <i class="fas fa-info-circle me-1"></i>
-                    {% if select == 'multiple' %}
-                        Sélectionnez les images souhaitées puis cliquez sur <strong>Valider</strong>.
-                    {% else %}
-                        Cliquez sur une image pour la sélectionner.
-                    {% endif %}
-                </div>
-            {% endif %}
-
-            {% if select %}
                 <div class="alert alert-info mb-3 py-2">
                     <i class="fas fa-info-circle me-1"></i>
                     {% if select == 'multiple' %}
@@ -110,7 +119,7 @@
                                 <i class="fas fa-folder text-warning me-2"></i>{{ file.name }}/
                             </a>
                             {% if editable and not select %}
-                                <button class="btn btn-sm btn-danger file-gallery-delete btn-delete" data-path="{{ file.path }}" title="Supprimer le dossier">
+                                <button type="button" class="btn btn-sm btn-danger file-gallery-delete btn-delete" data-path="{{ file.path }}" title="Supprimer le dossier">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             {% endif %}
@@ -118,26 +127,36 @@
                     {% else %}
                             {% if select %}
                             <div class="file-gallery-item selectable"
-                                 data-file-url="{{ path('bninefiles_files_image', { domain: domain, id: id, path: file.path }) }}" data-file-path="{{ file.path }}" data-file-name="{{ file.name }}">
+                                 data-file-url="{{ path('bninefiles_files_image', { domain: domain, id: id, path: file.path }) }}"
+                                 data-file-path="{{ domain }}/{{ id }}/{{ file.path }}"
+                                 data-file-name="{{ file.name }}">
                                 <div class="select-checkbox"><i class="fas fa-check"></i></div>
                                 <div class="select-overlay"><i class="fas fa-check-circle text-white fa-2x"></i></div>
                                 <img src="{{ path('bninefiles_files_thumbnail', { domain: domain, id: id, path: file.path }) }}"
                                      alt="{{ file.name }}"
                                      title="{{ file.name }}"
                                      loading="lazy">
+                                {% if editable %}
+                                    <button type="button" class="btn btn-sm btn-danger file-gallery-delete btn-delete"
+                                            data-path="{{ file.path }}"
+                                            title="Supprimer"
+                                            style="position:absolute;top:0.25rem;right:0.25rem;transition:opacity .2s;z-index:2;">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                {% endif %}
                             </div>
                             {% else %}
                             <div class="file-gallery-item">
                                 <a href="{{ path('bninefiles_files_image', { domain: domain, id: id, path: file.path }) }}"
                                    class="glightbox"
-                                   data-gallery="gallery-{{ domain }}-{{ id }}"
-                                   data-description="{{ file.name }}">
+                                   data-gallery="gallery-{{ domain }}-{{ id }}">
                                     <img src="{{ path('bninefiles_files_thumbnail', { domain: domain, id: id, path: file.path }) }}"
                                          alt="{{ file.name }}"
+                                         title="{{ file.name }}"
                                          loading="lazy">
                                 </a>
                                 {% if editable %}
-                                    <button class="btn btn-sm btn-danger file-gallery-delete btn-delete" data-path="{{ file.path }}" title="Supprimer">
+                                    <button type="button" class="btn btn-sm btn-danger file-gallery-delete btn-delete" data-path="{{ file.path }}" title="Supprimer">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 {% endif %}
@@ -190,10 +209,14 @@
     </div>
     {% endif %}
 
+    {# Bouton Valider : toujours visible en mode multiple, sticky en haut de la modale #}
     {% if select == 'multiple' %}
-    <div class="mt-3 d-flex justify-content-end">
+    <div class="bnine-gallery-sticky-validate">
         <button type="button" class="btn btn-success btn-validate-selection" disabled>
             <i class="fas fa-check me-1"></i>Valider (<span class="selection-count">0</span>)
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-cancel-selection">
+            <i class="fas fa-times me-1"></i>Annuler
         </button>
     </div>
     {% endif %}
@@ -222,111 +245,168 @@
     </div>
 
 <script>
+// jQuery, Bootstrap et GLightbox sont chargés ci-dessus par la template
 $(function () {
-    var selectMode = '{{ select }}';
+        var selectMode = '{{ select }}';
 
-    var lightbox = null;
-    if (!selectMode) {
-        lightbox = GLightbox({
-            loop: true,
-            touchNavigation: true,
-            preload: true
+        var lightbox = null;
+        if (!selectMode && typeof GLightbox === 'function') {
+            lightbox = GLightbox({
+                loop: true,
+                touchNavigation: true,
+                preload: true
+            });
+        }
+
+        function refreshContainer(containerId, path) {
+            var $oldContainer = $('#' + containerId);
+            var base = $oldContainer.data('base-path');
+
+            $.get(base, { path: path }, function (html) {
+                var $doc = $('<div>').html(html);
+                var $newContainer = $doc.find('#' + containerId);
+                if ($newContainer.length) {
+                    $oldContainer.replaceWith($newContainer);
+                    initGallery($newContainer);
+                    if (lightbox) lightbox.reload();
+
+                    // Dispatcher bnine:browse:refresh
+                    var detail = {
+                        path: path,
+                        origin: $oldContainer.data('instance') || null,
+                    };
+                    if (typeof bnineDispatch === 'function') {
+                        bnineDispatch('bnine:browse:refresh', detail, document);
+                    } else {
+                        var ev;
+                        try { ev = new CustomEvent('bnine:browse:refresh', { detail: detail, bubbles: true }); }
+                        catch (err) { ev = document.createEvent('CustomEvent'); ev.initCustomEvent('bnine:browse:refresh', true, false, detail); }
+                        document.dispatchEvent(ev);
+                    }
+                }
+            });
+        }
+
+        function initGallery($container) {
+            var containerId = $container.attr('id');
+
+            $container.off('click');
+
+            $container.on('click', '.btn-delete', function (e) {
+                e.preventDefault();
+                if (!confirm('Supprimer ce fichier ?')) return;
+
+                var pathToDelete = $(this).data('path');
+                var currentPath = $container.data('current-path');
+
+                $.ajax({
+                    url: $container.data('delete-url'),
+                    method: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ path: pathToDelete }),
+                    success: function (res) {
+                        if (res.success) {
+                            // Dispatcher bnine:browse:delete avant le refresh
+                            var detail = {
+                                path: pathToDelete,
+                                isDirectory: false, // determine cote serveur, pas dispo ici
+                                origin: $container.data('instance') || null,
+                            };
+                            if (typeof bnineDispatch === 'function') {
+                                bnineDispatch('bnine:browse:delete', detail, document);
+                            } else {
+                                var ev;
+                                try { ev = new CustomEvent('bnine:browse:delete', { detail: detail, bubbles: true }); }
+                                catch (err) { ev = document.createEvent('CustomEvent'); ev.initCustomEvent('bnine:browse:delete', true, false, detail); }
+                                document.dispatchEvent(ev);
+                            }
+                            refreshContainer(containerId, currentPath);
+                        } else {
+                            alert('Erreur : ' + res.error);
+                        }
+                    },
+                    error: function (xhr) {
+                        alert('Erreur lors de la suppression : ' + xhr.responseText);
+                    }
+                });
+            });
+        }
+
+        var containerId = 'file-gallery-{{ domain }}-{{ id|e('html_attr') }}';
+        var $gallery = $('#' + containerId);
+        initGallery($gallery);
+
+        $('#mymodaldir-{{ domain }}-{{ id|e('html_attr') }}').on('shown.bs.modal', function () {
+            $('#new-folder-name-{{ domain }}-{{ id|e('html_attr') }}').trigger('focus');
         });
-    }
 
-    function refreshContainer(containerId, path) {
-        const $oldContainer = $('#' + containerId);
-        const base = $oldContainer.data('base-path');
-
-        $.get(base, { path: path }, function (html) {
-            const $doc = $('<div>').html(html);
-            const $newContainer = $doc.find('#' + containerId);
-            if ($newContainer.length) {
-                $oldContainer.replaceWith($newContainer);
-                initGallery($newContainer);
-                if (lightbox) lightbox.reload();
+        $('#new-folder-name-{{ domain }}-{{ id|e('html_attr') }}').on('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                $('#btn-create-folder-{{ domain }}-{{ id|e('html_attr') }}').trigger('click');
             }
         });
-    }
 
-    function initGallery($container) {
-        const containerId = $container.attr('id');
-
-        $container.off('click');
-
-        $container.on('click', '.btn-delete', function (e) {
+        $('#btn-create-folder-{{ domain }}-{{ id|e('html_attr') }}').on('click', function (e) {
             e.preventDefault();
-            if (!confirm('Supprimer ce fichier ?')) return;
 
-            const pathToDelete = $(this).data('path');
-            const currentPath = $container.data('current-path');
+            var $btn = $(this);
+            var containerId = $btn.data('container-id');
+            var modalId = $btn.data('modal-id');
+            var inputId = $btn.data('input-id');
 
-            $.ajax({
-                url: $container.data('delete-url'),
-                method: 'POST',
-                contentType: 'application/json',
-                data: JSON.stringify({ path: pathToDelete }),
-                success: function (res) {
-                    if (res.success) {
-                        refreshContainer(containerId, currentPath);
+            var $container = $('#' + containerId);
+            var $input = $('#' + inputId);
+            var folderName = $input.val().trim();
+            var currentPath = $container.data('current-path') || '';
+
+            if (!folderName) {
+                alert('Veuillez entrer un nom de dossier.');
+                return;
+            }
+
+            // Validation client : refuse les séparateurs de chemin et caractères réservés Windows.
+            // Le serveur revalide en complément (cf. FileService::makeDirectory).
+            if (!/^[a-zA-Z0-9\-_\s.]+$/.test(folderName)) {
+                alert('Nom de dossier invalide.\nCaractères autorisés : lettres, chiffres, tirets, underscores, espaces, points.');
+                return;
+            }
+
+            $.post($container.data('mkdir-url'), {
+                path: currentPath,
+                name: folderName
+            }, function (response) {
+                if (response.success) {
+                    $input.val('');
+                    if (bootstrap && bootstrap.Modal) {
+                        var modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
+                        if (modal) modal.hide();
                     } else {
-                        alert('Erreur : ' + res.error);
+                        $('#' + modalId).modal('hide');
                     }
-                },
-                error: function (xhr) {
-                    alert('Erreur lors de la suppression : ' + xhr.responseText);
+
+                    // Dispatcher bnine:browse:mkdir avant le refresh
+                    var detail = {
+                        path: (currentPath ? currentPath + '/' : '') + folderName,
+                        name: folderName,
+                        origin: $container.data('instance') || null,
+                    };
+                    if (typeof bnineDispatch === 'function') {
+                        bnineDispatch('bnine:browse:mkdir', detail, document);
+                    } else {
+                        var ev;
+                        try { ev = new CustomEvent('bnine:browse:mkdir', { detail: detail, bubbles: true }); }
+                        catch (err) { ev = document.createEvent('CustomEvent'); ev.initCustomEvent('bnine:browse:mkdir', true, false, detail); }
+                        document.dispatchEvent(ev);
+                    }
+
+                    refreshContainer(containerId, currentPath);
+                } else {
+                    alert('Erreur : ' + response.error);
                 }
             });
         });
-    }
 
-    const containerId = 'file-gallery-{{ domain }}-{{ id|e('html_attr') }}';
-    const $gallery = $('#' + containerId);
-    initGallery($gallery);
-
-    $('#mymodaldir-{{ domain }}-{{ id|e('html_attr') }}').on('shown.bs.modal', function () {
-        $('#new-folder-name-{{ domain }}-{{ id|e('html_attr') }}').trigger('focus');
-    });
-
-    $('#new-folder-name-{{ domain }}-{{ id|e('html_attr') }}').on('keydown', function (e) {
-        if (e.key === 'Enter') {
-            e.preventDefault();
-            $('#btn-create-folder-{{ domain }}-{{ id|e('html_attr') }}').trigger('click');
-        }
-    });
-
-    $('#btn-create-folder-{{ domain }}-{{ id|e('html_attr') }}').on('click', function (e) {
-        e.preventDefault();
-
-        const $btn = $(this);
-        const containerId = $btn.data('container-id');
-        const modalId = $btn.data('modal-id');
-        const inputId = $btn.data('input-id');
-
-        const $container = $('#' + containerId);
-        const $input = $('#' + inputId);
-        const folderName = $input.val().trim();
-        const currentPath = $container.data('current-path') || '';
-
-        if (!folderName) {
-            alert('Veuillez entrer un nom de dossier.');
-            return;
-        }
-
-        $.post($container.data('mkdir-url'), {
-            path: currentPath,
-            name: folderName
-        }, function (response) {
-            if (response.success) {
-                $input.val('');
-                const modal = bootstrap.Modal.getInstance(document.getElementById(modalId));
-                if (modal) modal.hide();
-                refreshContainer(containerId, currentPath);
-            } else {
-                alert('Erreur : ' + response.error);
-            }
-        });
-    });
 });
 
 // Delegated events for select mode - works even when loaded via AJAX
@@ -347,6 +427,11 @@ $(document).off('click.bninefilenav', '.gallery-nav').on('click.bninefilenav', '
 });
 
 $(document).off('click.bninefileselect', '.file-gallery-item.selectable').on('click.bninefileselect', '.file-gallery-item.selectable', function (e) {
+    // Ignore les clics sur les contrôles internes (bouton delete, checkbox de sélection).
+    // Sinon le clic sur 'Supprimer' declenche aussi la selection de l'image et ferme la modale.
+    if ($(e.target).closest('.btn-delete, .select-checkbox, .select-overlay, .file-gallery-delete').length) {
+        return;
+    }
     e.preventDefault();
     e.stopPropagation();
     var $item = $(this);
@@ -364,11 +449,46 @@ $(document).off('click.bninefileselect', '.file-gallery-item.selectable').on('cl
             path: $item.data('file-path'),
             name: $item.data('file-name')
         };
-        if (typeof window.bnineFileSelect === 'function') {
-            window.bnineFileSelect(data);
-        }
+        // Le bundle widget a stocké quel input est actif dans window.parent._bnineActiveInputId.
+        // Si défini, on route vers la callback du widget (_bnineSelectRegistry[inputId]).
+        // Sinon, fallback sur l'ancienne callback globale bnineFileSelect.
+        deliverSelection(data);
     }
 });
+
+// Helper : délivre la sélection à la bonne callback.
+// On envoie TOUJOURS un array : si l'utilisateur a sélectionné 1 image, c'est [item].
+// Le widget single prend items[0], le widget multiple prend items.
+function deliverSelection(payload) {
+    var items = Array.isArray(payload) ? payload : [payload];
+    var parent = window.parent || window;
+
+    // 1. Priorité : inputId dans l'URL de l'iframe (paramètre ajouté par le widget)
+    var urlParams = new URLSearchParams(window.location.search);
+    var urlInputId = urlParams.get('inputId');
+
+    // 2. Sinon : variable globale _bnineActiveInputId
+    var activeId = urlInputId || parent._bnineActiveInputId;
+
+    if (activeId && parent._bnineSelectRegistry && typeof parent._bnineSelectRegistry[activeId] === 'function') {
+        // Toujours passer un array, le widget décide quoi en faire
+        parent._bnineSelectRegistry[activeId](items);
+        if (parent && typeof parent.BnineModalClose === 'function') {
+            parent.BnineModalClose();
+        }
+        return;
+    }
+    var cb = (typeof window.bnineFileSelect === 'function') ? window.bnineFileSelect : null;
+    if (!cb && parent && typeof parent.bnineFileSelect === 'function') {
+        cb = parent.bnineFileSelect;
+    }
+    if (cb) {
+        cb(items);
+    }
+    if (parent && typeof parent.BnineModalClose === 'function') {
+        parent.BnineModalClose();
+    }
+}
 
 $(document).off('click.bninefilevalidate', '.btn-validate-selection').on('click.bninefilevalidate', '.btn-validate-selection', function (e) {
     e.preventDefault();
@@ -381,12 +501,21 @@ $(document).off('click.bninefilevalidate', '.btn-validate-selection').on('click.
             name: $(this).data('file-name')
         });
     });
-    if (items.length > 0 && typeof window.bnineFileSelect === 'function') {
-        window.bnineFileSelect(items);
+    if (items.length > 0) {
+        deliverSelection(items);
     }
 });
 
-// Delegated event for upload button - works even when loaded via AJAX
+// Bouton "Annuler" : ferme la modale sans sélection
+$(document).off('click.bninecancel', '.btn-cancel-selection').on('click.bninecancel', '.btn-cancel-selection', function (e) {
+    e.preventDefault();
+    if (window.parent && typeof window.parent.BnineModalClose === 'function') {
+        window.parent.BnineModalClose();
+    } else if (typeof window.BnineModalClose === 'function') {
+        window.BnineModalClose();
+    }
+});
+
 $(document).off('click.bnineupload', '.bnine-upload-btn').on('click.bnineupload', '.bnine-upload-btn', function (e) {
     e.preventDefault();
     var $btn = $(this);
@@ -398,15 +527,26 @@ $(document).off('click.bnineupload', '.bnine-upload-btn').on('click.bnineupload'
     var compact = $btn.data('compact');
     var select = $btn.data('select');
 
-    BnineModalOpen({
-        id: 'mymodalupload-' + domain + '-' + id,
-        title: 'Upload images',
-        url: url,
-        height: '600px'
-    });
+    // Generer un UUID unique pour ce bouton upload du browser
+    var widgetId = (typeof bnineUuid === 'function') ? bnineUuid() : ('browser-upload-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+
+    // Injecter l'origin dans l'URL d'upload pour que l'iframe puisse le recuperer
+    if (url.indexOf('origin=') === -1) {
+        url += (url.indexOf('?') === -1 ? '?' : '&') + 'origin=' + encodeURIComponent(widgetId);
+    }
+
+    if (typeof window.BnineModalOpen === 'function') {
+        window.BnineModalOpen({
+            id: 'mymodalupload-' + domain + '-' + id,
+            title: 'Upload images',
+            url: url,
+            height: '600px',
+            widgetId: widgetId,
+            endpoint: 'browse'
+        });
+    }
 });
 
-// Listen for modal close to refresh gallery
 $(document).on('bnine-modal-closed', function () {
     $('.file-gallery').each(function () {
         var $gallery = $(this);
@@ -424,7 +564,9 @@ $(document).on('bnine-modal-closed', function () {
     });
 });
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/glightbox/dist/js/glightbox.min.js"></script>
-
 </div>
+
+{% if _is_iframe %}
+</body>
+</html>
+{% endif %}

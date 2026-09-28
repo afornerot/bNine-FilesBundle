@@ -1,0 +1,51 @@
+services:
+  app:
+    build:
+      context: ./docker
+      dockerfile: Dockerfile
+      additional_contexts:
+        app: ..
+    image: bnine-files-sample:dev
+    container_name: bninefiles_sample
+    ports:
+      - "9002:80"
+    volumes:
+      # Volumes nommés = isolation, pas de conflit de permissions
+      - app_var:/var/www/html/var
+      - app_uploads:/var/www/html/uploads
+
+      # Bind-mounts = dev live, modifs visibles sans rebuild
+      # Tout ce qui est ici est hot-reload : juste `docker compose restart`
+      - ./config:/var/www/html/config
+      - ./src:/var/www/html/src
+      - ./templates:/var/www/html/templates
+      - ./bin:/var/www/html/bin
+      - ./composer.json:/var/www/html/composer.json
+      - ./.env:/var/www/html/.env
+      - ./public/index.php:/var/www/html/public/index.php
+      # NE PAS bind-monter ./public/bundles : les assets bundle (CSS/JS) sont
+      # publiés au démarrage du container via assets:install à partir du bundle
+      # source bind-monté sur vendor/bnine/filesbundle.
+      # Si on bind-monte ./public/bundles, on écrase les fichiers générés par
+      # assets:install avec une version obsolète stockée dans le sample.
+      - ./docker/entrypoint.sh:/usr/local/bin/entrypoint.sh
+      - ./docker/seed.sh:/usr/local/bin/seed.sh
+
+      # Le bundle source est bind-mounté DIRECTEMENT dans vendor/
+      # Toute modif de src/, templates/, config/, Resources/ du bundle
+      # est visible après simple restart
+      - ../:/var/www/html/vendor/bnine/filesbundle:ro
+
+      # Wallpaper par défaut (modifiable sans rebuild, juste restart)
+      - /home/afornerot/Images/Wallpaper:/var/www/html/wallpaper:ro
+    environment:
+      APP_ENV: dev
+      APP_DEBUG: "1"
+      APP_SECRET: changeme-sample-app-secret
+      STORAGE_DSN: local://uploads
+      STORAGE_S3: "0"
+    working_dir: /var/www/html
+
+volumes:
+  app_var:
+  app_uploads:

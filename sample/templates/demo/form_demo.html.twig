@@ -1,0 +1,192 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Demo : vrai formulaire Symfony{% endblock %}
+
+{% block body %}
+<div class="container">
+    <h1><i class="fas fa-file-alt me-2"></i>Form Symfony avec SelectFileType</h1>
+    <p class="text-muted">
+        Démontre <code>SelectFileType</code> du bundle (image single + galerie multiple) dans un vrai
+        formulaire Symfony (validation, DTO, hydration, gestion du POST).
+    </p>
+
+    {{ form_start(form, {attr: {id: 'demo-form', novalidate: 'novalidate'}}) }}
+
+    <div class="card">
+        <div class="card-body">
+            <div class="mb-3">
+                {{ form_row(form.title) }}
+            </div>
+
+            <div class="mb-3">
+                {{ form_label(form.image) }}
+                {{ form_widget(form.image) }}
+                <small class="text-muted d-block mt-1">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Mode <code>single</code>, <code>access=write</code>, <code>layout=inline</code>,
+                    <code>domain=sample</code>, <code>entity_id=1</code>, <code>max_height=150</code>, <code>show_name=true</code>.
+                </small>
+            </div>
+
+            <div class="mb-3">
+                {{ form_label(form.gallery) }}
+                {{ form_widget(form.gallery) }}
+                <small class="text-muted d-block mt-1">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Mode <code>multiple</code>, <code>grid_cols=5</code>, <code>layout=inline</code>, <code>show_name=true</code>.
+                </small>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-save me-1"></i>Enregistrer
+                </button>
+                <button type="reset" class="btn btn-outline-secondary">
+                    <i class="fas fa-undo me-1"></i>Réinitialiser
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{ form_end(form) }}
+
+    {# ============ Code d'usage ============ #}
+    <div class="card mt-4">
+        <div class="card-header"><i class="fas fa-code me-2"></i>Code d'usage</div>
+        <div class="card-body">
+
+            <h6 class="text-muted">1. Contrôleur</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>// src/Controller/DemoFormController.php
+use App\Form\DemoArticleType;
+use App\Form\Dto\DemoArticleDto;
+
+#[Route('/form-demo', name: 'demo_form')]
+public function formDemo(Request $request): Response
+{
+    $dto = new DemoArticleDto();
+
+    $form = $this->createForm(DemoArticleType::class, $dto);
+    $form-&gt;handleRequest($request);
+
+    if ($form-&gt;isSubmitted() &amp;&amp; $form-&gt;isValid()) {
+        $data = $form-&gt;getData();
+        // $data-&gt;title   : string
+        // $data-&gt;image   : string|null (chemin unique)
+        // $data-&gt;gallery : string (JSON array, ex: '["sample/1/a.jpg", "sample/1/b.jpg"]')
+        // ...
+    }
+
+    return $this-&gt;render('demo/form_demo.html.twig', [
+        'form' =&gt; $form-&gt;createView(),
+    ]);
+}</code></pre>
+
+            <h6 class="text-muted">2. DTO</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>// src/Form/Dto/DemoArticleDto.php
+use Symfony\Component\Validator\Constraints as Assert;
+
+class DemoArticleDto
+{
+    public ?string $title = null;
+
+    #[Assert\NotBlank(message: 'L\'image est obligatoire.')]
+    public ?string $image = null;
+
+    /** JSON array de chemins. Ex: '["avatar/0/abc.jpg","avatar/0/def.jpg"]' */
+    public string $gallery = '[]';
+}</code></pre>
+
+            <h6 class="text-muted">3. Form Type — toutes les options de SelectFileType</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>// src/Form/DemoArticleType.php
+use Bnine\FilesBundle\Form\Type\SelectFileType;
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\FormBuilderInterface;
+
+class DemoArticleType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options): void
+    {
+        $builder
+            -&gt;add('title', TextType::class, ['label' =&gt; 'Titre'])
+            // Image de couverture : SelectFileType en mode single
+            -&gt;add('image', SelectFileType::class, [
+                'label'       =&gt; 'Image de couverture',    // label standard Symfony
+                'mode'        =&gt; 'single',                  // 'single' (string) ou 'multiple' (JSON array)
+                'access'      =&gt; 'write',                  // 'write' (upload+folder+delete) ou 'read' (sélection seule)
+                'layout'      =&gt; 'inline',                 // 'inline' (preview|boutons) ou 'column' (preview/boutons)
+                'domain'      =&gt; 'sample',                 // domaine de stockage
+                'entity_id'   =&gt; 1,                        // id de l'entité propriétaire
+                'required'    =&gt; true,                     // ajoute l'attribut HTML required
+                'show_name'   =&gt; true,                     // affiche le nom du fichier sous la preview
+                'max_height'  =&gt; 150,                      // hauteur max de la preview (mode single, px)
+                // 'grid_cols'   =&gt; 4,                     // nb colonnes (mode multiple uniquement, défaut 4)
+                // 'placeholder' =&gt; 'Aucune image',        // texte du placeholder vide
+            ])
+            // Galerie : SelectFileType en mode multiple
+            -&gt;add('gallery', SelectFileType::class, [
+                'label'       =&gt; 'Galerie d\'images',
+                'mode'        =&gt; 'multiple',
+                'access'      =&gt; 'write',
+                'layout'      =&gt; 'inline',
+                'domain'      =&gt; 'sample',
+                'entity_id'   =&gt; 1,
+                'required'    =&gt; false,
+                'show_name'   =&gt; true,
+                'max_height'  =&gt; 100,
+                'grid_cols'   =&gt; 5,                        // 5 colonnes de vignettes
+            ]);
+    }
+
+    public function configureOptions(\\Symfony\\Component\\OptionsResolver\\OptionsResolver $resolver): void
+    {
+        $resolver-&gt;setDefaults([
+            'data_class'      =&gt; DemoArticleDto::class,
+            'csrf_protection' =&gt; false, // démo
+        ]);
+    }
+}</code></pre>
+
+            <h6 class="text-muted">4. Récapitulatif des options <code>SelectFileType</code></h6>
+            <table class="table table-sm table-bordered">
+                <thead><tr><th>Option</th><th>Type</th><th>Défaut</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><code>mode</code></td><td>string</td><td><code>'single'</code></td><td><code>'single'</code> = 1 image (stocke un string), <code>'multiple'</code> = N images (stocke un JSON array).</td></tr>
+                    <tr><td><code>access</code></td><td>string</td><td><code>'write'</code></td><td><code>'write'</code> = modale avec upload/dossier/suppression, <code>'read'</code> = modale en sélection seule.</td></tr>
+                    <tr><td><code>layout</code></td><td>string</td><td><code>'inline'</code></td><td><code>'inline'</code> = preview|boutons, <code>'column'</code> = preview/boutons.</td></tr>
+                    <tr><td><code>domain</code></td><td>string</td><td><code>'sample'</code></td><td>Domaine de stockage (sous-dossier dans <code>uploads/</code>).</td></tr>
+                    <tr><td><code>entity_id</code></td><td>int|string</td><td><code>1</code></td><td>ID de l'entité propriétaire des fichiers.</td></tr>
+                    <tr><td><code>required</code></td><td>bool</td><td><code>false</code></td><td>Ajoute l'attribut HTML <code>required</code> sur l'input caché.</td></tr>
+                    <tr><td><code>show_name</code></td><td>bool</td><td><code>false</code></td><td>Affiche le nom du fichier sous chaque vignette.</td></tr>
+                    <tr><td><code>max_height</code></td><td>int|null</td><td><code>100</code></td><td>Hauteur max de la preview (px, mode single).</td></tr>
+                    <tr><td><code>grid_cols</code></td><td>int</td><td><code>4</code></td><td>Nb colonnes de la grille (mode multiple).</td></tr>
+                    <tr><td><code>placeholder</code></td><td>string|null</td><td>auto</td><td>Texte affiché quand aucune image n'est sélectionnée.</td></tr>
+                </tbody>
+            </table>
+
+            <h6 class="text-muted">5. Twig template (rendu par défaut)</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>{% verbatim %}{# Simple : laisser Symfony rendre le champ #}
+{{ form_row(form.image) }}
+
+{# Personnalisé : #}
+{{ form_label(form.image) }}
+{{ form_widget(form.image) }}{% endverbatim %}</code></pre>
+
+            <h6 class="text-muted">6. Activation du theme Twig</h6>
+            <p class="small">
+                Pour que <code>SelectFileType</code> rende le widget bundle (au lieu d'un simple input caché),
+                l'application hôte doit activer le theme fourni :
+            </p>
+            <pre class="small bg-light p-3 rounded mb-2"><code>{% verbatim %}# config/packages/twig.yaml
+twig:
+    form_themes:
+        - '@BnineFilesBundle/Form/_theme.html.twig'{% endverbatim %}</code></pre>
+            <p class="small text-muted mb-0">
+                Le theme surcharge <code>hidden_widget</code> et <code>hidden_row</code> pour intercepter
+                uniquement les champs dont <code>block_prefixes</code> contient <code>'select_file'</code>.
+                Les autres <code>HiddenType</code> ne sont pas affectés.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

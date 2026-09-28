@@ -1,0 +1,104 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}CachePolicy - Sample{% endblock %}
+
+{% block body %}
+<div class="container">
+    <h1><i class="fas fa-clock me-2"></i>Stratégie de cache HTTP</h1>
+    <p class="text-muted">
+        Le bundle interroge <code>CachePolicyInterface</code> pour chaque fichier servi par
+        les routes <code>bninefiles_files_image</code> et <code>bninefiles_files_thumbnail</code>,
+        afin de décider du <code>Cache-Control</code> envoyé au navigateur.
+    </p>
+
+    <div class="card mb-4">
+        <div class="card-header">CachePolicy injecté</div>
+        <div class="card-body">
+            <p class="mb-1"><strong>Classe :</strong> <code>{{ cache_class }}</code></p>
+            <p class="mb-0 small text-muted">
+                Le sample injecte <code>App\Cache\SampleCachePolicy</code> via l'alias
+                <code>Bnine\FilesBundle\Cache\CachePolicyInterface</code> dans
+                <code>config/services.yaml</code>.
+            </p>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Décisions appliquées</div>
+        <div class="card-body p-0">
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Ressource</th>
+                        <th>URL</th>
+                        <th>Cache-Control</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for d in decisions %}
+                        <tr>
+                            <td><code>{{ d.label }}</code></td>
+                            <td>
+                                <a href="{{ d.url }}" target="_blank" class="small">
+                                    {{ d.url|length > 60 ? d.url|slice(0, 60) ~ '...' : d.url }}
+                                </a>
+                            </td>
+                            <td>
+                                <code class="text-{{ d.applied_public ? 'success' : 'warning' }}">
+                                    {{ d.cache_control }}
+                                </code>
+                                {% if d.raw_max_age is null %}
+                                    <span class="badge bg-secondary">défaut bundle</span>
+                                {% endif %}
+                                {% if d.raw_public is null %}
+                                    <span class="badge bg-secondary">défaut bundle</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">Code d'usage</div>
+        <div class="card-body">
+            <h6 class="text-muted">1. Implémenter CachePolicyInterface</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>use Bnine\FilesBundle\Cache\CachePolicyInterface;
+
+class SampleCachePolicy implements CachePolicyInterface
+{
+    public function getCacheMaxAge(string $domain, string $id, string $filePath): ?int
+    {
+        // Avatars : cache court (5 min) car susceptibles de changer
+        if (in_array($domain, ['avatar', 'logo'])) {
+            return 300;
+        }
+        return null; // defaut du bundle (30 jours)
+    }
+
+    public function isPublicCacheable(string $domain, string $id, string $filePath): ?bool
+    {
+        // Domaines sensibles : private (pas de cache CDN)
+        if (in_array($domain, ['avatar', 'logo'])) {
+            return false;
+        }
+        return null; // defaut du bundle (public)
+    }
+}</code></pre>
+
+            <h6 class="text-muted">2. Enregistrer le service (config/services.yaml)</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>services:
+    Bnine\FilesBundle\Cache\CachePolicyInterface: '@App\Cache\SampleCachePolicy'</code></pre>
+
+            <h6 class="text-muted">3. Le bundle applique la politique automatiquement</h6>
+            <p class="small mb-0">
+                Le <code>FileController</code> injecte <code>CachePolicyInterface</code> via le constructeur
+                et appelle <code>applyCachePolicy()</code> pour chaque réponse <code>image()</code> et
+                <code>thumbnail()</code>. Aucune configuration supplémentaire n'est nécessaire.
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}

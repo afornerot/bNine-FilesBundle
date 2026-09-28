@@ -55,8 +55,45 @@ class FileService
         }
     }
 
+    public function ensureDirectory(string $domain, string $id, string $relativePath = ''): void
+    {
+        $relativePath = trim($relativePath, '/');
+
+        if ('' === $relativePath) {
+            $this->init($domain, $id);
+
+            return;
+        }
+
+        if ($this->isS3()) {
+            $segments = explode('/', $relativePath);
+            $current = $domain.'/'.$id;
+            foreach ($segments as $segment) {
+                $current .= '/'.$segment;
+                if (!$this->storage->directoryExists($current)) {
+                    $this->storage->createDirectory($current);
+                }
+            }
+
+            return;
+        }
+
+        $entityPath = $this->getEntityPath($domain, $id);
+        $target = $entityPath.'/'.$relativePath;
+        if (!is_dir($target)) {
+            $fs = new Filesystem();
+            try {
+                $fs->mkdir($target, 0775);
+            } catch (IOExceptionInterface $e) {
+                throw new \RuntimeException(sprintf('Impossible de créer le répertoire %s : %s', $target, $e->getMessage()));
+            }
+        }
+    }
+
     public function list(string $domain, string $id, string $relativePath = ''): array
     {
+        $this->init($domain, $id);
+
         if ($this->isS3()) {
             return $this->listViaStorage($domain, $id, $relativePath);
         }
@@ -131,8 +168,15 @@ class FileService
 
     public function makeDirectory(string $domain, string $id, string $relativePath, string $name): void
     {
-        if (!preg_match('/^[a-zA-Z0-9-_]+$/', $name)) {
-            throw new \InvalidArgumentException('Nom de dossier invalide.');
+        // Caractères autorisés : lettres, chiffres, tirets, underscores, espaces, points.
+        // Refuse les séparateurs de chemin et les caractères réservés Windows (* ? " < > | : \ /).
+        if (!preg_match('/^[a-zA-Z0-9\-_\s.]+$/', $name)) {
+            throw new \InvalidArgumentException('Nom de dossier invalide (caractères autorisés : lettres, chiffres, tirets, underscores, espaces, points).');
+        }
+
+        // Un nom ne peut pas être composé uniquement de points/espaces.
+        if (0 === strlen(trim($name, ". \t\n\r\0\x0B"))) {
+            throw new \InvalidArgumentException('Le nom du dossier ne peut pas être vide.');
         }
 
         if ($this->isS3()) {

@@ -1,0 +1,12 @@
+controllers:
+    resource:
+        path: ../src/Controller/
+        namespace: App\Controller
+    type: attribute
+
+bnine_files:
+    resource:
+        path: ../vendor/bnine/filesbundle/src/Controller/
+        namespace: Bnine\FilesBundle\Controller
+    type: attribute
+    prefix: /bninefiles

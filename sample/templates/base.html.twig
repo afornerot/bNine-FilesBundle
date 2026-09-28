@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}bNine-FilesBundle Sample{% endblock %}</title>
+
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/fontawesome.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/glightbox.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/dropzone.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/cropper.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/css/bninefiles.css') }}">
+
+    <script src="{{ asset('bundles/bninefiles/lib/js/jquery.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/lib/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/lib/js/dropzone.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/lib/js/glightbox.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/lib/js/cropper.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/js/bninefiles.js') }}"></script>
+
+    {# Sample Event Logger : console.log tous les CustomEvents bnine: dispatchés par le bundle.
+       Pour filtrer dans devtools : tape 'bnine:' dans la barre de filtre.
+       Pour désactiver : commenter ce bloc. #}
+    <script>
+        (function () {
+            'use strict';
+            var EVENTS = [
+                'bnine:modal:open', 'bnine:modal:close', 'bnine:modal:closed',
+                'bnine:upload:done', 'bnine:upload:error',
+                'bnine:crop:done', 'bnine:crop:error',
+                'bnine:select:done',
+                'bnine:iconupload:change', 'bnine:selectfile:change',
+                'bnine:browse:delete', 'bnine:browse:mkdir', 'bnine:browse:refresh'
+            ];
+            var COLORS = {
+                'bnine:modal:open': '#0d6efd', 'bnine:modal:close': '#6c757d', 'bnine:modal:closed': '#6c757d',
+                'bnine:upload:done': '#198754', 'bnine:upload:error': '#dc3545',
+                'bnine:crop:done': '#198754', 'bnine:crop:error': '#dc3545',
+                'bnine:select:done': '#0dcaf0',
+                'bnine:iconupload:change': '#6610f2', 'bnine:selectfile:change': '#6610f2',
+                'bnine:browse:delete': '#fd7e14', 'bnine:browse:mkdir': '#20c997', 'bnine:browse:refresh': '#6c757d'
+            };
+            EVENTS.forEach(function (name) {
+                document.addEventListener(name, function (e) {
+                    var color = COLORS[name] || '#000';
+                    var styleBadge = 'background:' + color + '; color:#fff; padding:2px 6px; border-radius:3px; font-weight:600; font-size:11px;';
+                    var styleOrigin = 'color:#666; font-size:11px; font-style:italic;';
+                    console.log('%c ' + name + ' ', styleBadge, e.detail || {}, '%c origin=' + ((e.detail && e.detail.origin) || 'null'), styleOrigin);
+                }, true);
+            });
+            console.log('%c[bNineEvents] Logger actif. Filtre sur bnine: dans la console devtools.', 'background:#000; color:#fff; padding:4px 8px; border-radius:3px; font-weight:600;');
+        })();
+    </script>
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4">
+    <div class="container">
+        <a class="navbar-brand" href="{{ path('demo_index') }}">
+            <i class="fas fa-images me-2"></i>bNine-FilesBundle Sample
+        </a>
+        <div class="navbar-nav">
+            <a class="nav-link" href="{{ path('demo_browse') }}">Browse</a>
+            <a class="nav-link" href="{{ path('demo_gallery') }}">Gallery</a>
+            <a class="nav-link" href="{{ path('demo_select_single') }}">Select single HTML</a>
+            <a class="nav-link" href="{{ path('demo_select_multiple') }}">Select multi HTML</a>
+            <a class="nav-link" href="{{ path('demo_form') }}">Select Form</a>
+            <a class="nav-link" href="{{ path('demo_icon') }}">Icon HTML</a>
+            <a class="nav-link" href="{{ path('demo_form_icon') }}">Icon FORM</a>
+            <a class="nav-link" href="{{ path('demo_cache_policy') }}"><i class="fas fa-clock me-1"></i>Cache HTTP</a>
+            <a class="nav-link" href="{{ path('demo_readme') }}"><i class="fas fa-book me-1"></i>README</a>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid pb-5 px-4">
+    {% block body %}{% endblock %}
+</div>
+
+{% block javascripts %}{% endblock %}
+</body>
+</html>

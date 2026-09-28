@@ -1,8 +1,21 @@
 {% block image_upload_widget %}
-    <div class="image-upload-wrapper">
+    {% set image_upload_domain = attr['data-domain']|default('uploads') %}
+    {% set image_upload_entity_id = attr['data-entity-id']|default('0') %}
+    {% set image_upload_max_width = attr['data-max-width']|default(300) %}
+
+    {# URLs des routes bundle, calculées par Twig (pas hardcodées) #}
+    {% set image_upload_modal_url = path('bninefiles_files_uploadmodal', {domain: image_upload_domain, id: image_upload_entity_id, imageOnly: 1}) %}
+    {% set image_upload_thumb_url = path('bninefiles_files_thumbnail', {domain: image_upload_domain, id: image_upload_entity_id}) %}
+
+    <div class="image-upload-wrapper"
+         data-domain="{{ image_upload_domain }}"
+         data-entity-id="{{ image_upload_entity_id }}"
+         data-max-width="{{ image_upload_max_width }}"
+         data-route-modal="{{ image_upload_modal_url }}"
+         data-route-thumb="{{ image_upload_thumb_url }}">
         <div class="d-flex align-items-center gap-2 mb-2">
             <img class="image-upload-preview"
-                 src="{% if value %}{{ value }}{% endif %}"
+                 src="{% if value %}{{ bninefile(value) }}{% endif %}"
                  alt=""
                  style="height: 80px; border-radius: 4px; background: var(--bs-light); padding: 4px; {% if not value %}display: none;{% endif %}">
             <button type="button" class="btn btn-sm btn-outline-primary image-upload-btn">
@@ -16,38 +29,57 @@
     </div>
 
     <script>
-    $(document).ready(function() {
-        var $wrapper = $('#{{ id }}').closest('.image-upload-wrapper');
-        var uploadUrl = '{{ path("bninefiles_files_uploadmodal", {domain: attr["data-domain"], id: attr["data-entity-id"], imageOnly: 1}) }}';
-        var entityId = '{{ attr["data-entity-id"] }}';
-        var domain = '{{ attr["data-domain"] }}';
+        (function () {
+            var wrapper = document.currentScript ? document.currentScript.previousElementSibling : null;
+            if (!wrapper || !wrapper.classList.contains('image-upload-wrapper')) {
+                var inputs = document.querySelectorAll('.image-upload-wrapper input[type="hidden"]');
+                wrapper = inputs[inputs.length - 1] ? inputs[inputs.length - 1].closest('.image-upload-wrapper') : null;
+            }
+            if (!wrapper) return;
 
-        $wrapper.find('.image-upload-btn').on('click', function() {
-            BnineModalOpen({
-                id: 'image-upload-' + entityId,
-                title: 'Uploader une image',
-                url: uploadUrl,
-                height: '600px',
-                currentInput: '{{ id }}',
-                onClose: function() {
-                    var val = $wrapper.find('input[type="hidden"]').val();
-                    if (val) {
-                        var thumbUrl = '{{ path("bninefiles_files_thumbnail", {domain: "___DOMAIN___", id: "___ID___", path: "___VAL___"}) }}'
-                            .replace('___DOMAIN___', domain)
-                            .replace('___ID___', entityId)
-                            .replace('___VAL___', encodeURIComponent(val));
-                        $wrapper.find('.image-upload-preview').attr('src', thumbUrl).show();
-                        $wrapper.find('.image-upload-clear').show();
-                    }
+            var hiddenInput = wrapper.querySelector('input[type="hidden"]');
+            var preview = wrapper.querySelector('.image-upload-preview');
+            var btn = wrapper.querySelector('.image-upload-btn');
+            var clearBtn = wrapper.querySelector('.image-upload-clear');
+            // URLs des routes bundle (calculées par Twig, passées via data-attributes)
+            var routeModal = wrapper.dataset.routeModal;
+            var routeThumb = wrapper.dataset.routeThumb;
+
+            btn.addEventListener('click', function () {
+                // Generer un UUID unique pour identifier l'origine
+                var widgetId = (typeof bnineUuid === 'function') ? bnineUuid() : ('image-upload-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+
+                // Injecter l'origin dans l'URL d'upload pour que l'iframe puisse le recuperer
+                var urlWithOrigin = routeModal;
+                if (urlWithOrigin.indexOf('origin=') === -1) {
+                    urlWithOrigin += (urlWithOrigin.indexOf('?') === -1 ? '?' : '&') + 'origin=' + encodeURIComponent(widgetId);
                 }
-            });
-        });
 
-        $wrapper.find('.image-upload-clear').on('click', function() {
-            $wrapper.find('input[type="hidden"]').val('');
-            $wrapper.find('.image-upload-preview').attr('src', '').hide();
-            $(this).hide();
-        });
-    });
+                BnineModalOpen({
+                    id: 'image-upload-' + wrapper.dataset.entityId,
+                    title: 'Uploader une image',
+                    url: urlWithOrigin,
+                    height: '600px',
+                    currentInput: hiddenInput.id,
+                    widgetId: widgetId,
+                    endpoint: 'imageupload',
+                    onClose: function () {
+                        var val = hiddenInput.value;
+                        if (val) {
+                            preview.src = routeThumb + '?path=' + encodeURIComponent(val);
+                            preview.style.display = '';
+                            clearBtn.style.display = '';
+                        }
+                    }
+                });
+            });
+
+            clearBtn.addEventListener('click', function () {
+                hiddenInput.value = '';
+                preview.src = '';
+                preview.style.display = 'none';
+                clearBtn.style.display = 'none';
+            });
+        })();
     </script>
 {% endblock %}

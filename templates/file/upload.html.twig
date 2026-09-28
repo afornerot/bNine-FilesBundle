@@ -1,27 +1,77 @@
-{% extends 'base.html.twig' %}
-
-{% block localstyle %}
-    <style>
-        body { background-color: transparent; }
-    </style>
-{% endblock %}
-
-{% block body %}
-    <a class="btn btn-secondary" onclick="window.parent.BnineModalClose();">Annuler</a>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Upload</title>
+    {{ include('@BnineFiles/partials/_iframe_assets.html.twig', { _iframe_context: 'upload' }) }}
+    <style>body { background-color: transparent; }</style>
+</head>
+<body>
+    <a class="btn btn-secondary" onclick="window.parent.BnineModalClose();"><i class="fas fa-times"></i> Annuler</a>
     <form action="{{ path('bninefiles_files_uploadfile', {
         domain: domain,
         id: id,
         path: path
     }) }}"
     class="dropzone" id="myDropzone" style="margin-top:10px"></form>
-{% endblock %}
 
-{% block localscript %}
     <script>
+        // Recuperer l'origin (UUID du widget initiateur) depuis l'URL de l'iframe
+        var urlParams = new URLSearchParams(window.location.search);
+        var origin = urlParams.get('origin') || null;
+
         var lastUploadedFilename = null;
 
+        // Extrait le basename d'un chemin (équivalent navigateur de basename PHP/Node).
+        function getBasename(path) {
+            if (!path) return '';
+            var idx = Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'));
+            return idx >= 0 ? path.substring(idx + 1) : path;
+        }
+
+        // Dispatcher bnine:upload:done vers le parent
+        function dispatchUploadDone(filename, fileUrl) {
+            var basename = getBasename(filename);
+            var detail = {
+                domain: '{{ domain }}',
+                id: '{{ id }}',
+                path: basename,
+                filename: basename,
+                url: fileUrl,
+                origin: origin,
+                endpoint: '{{ endpoint|default("bninefile") }}',
+            };
+            try {
+                var ev = new CustomEvent('bnine:upload:done', { detail: detail, bubbles: true });
+                window.parent.document.dispatchEvent(ev);
+            } catch (e) {
+                var ev2 = window.parent.document.createEvent('CustomEvent');
+                ev2.initCustomEvent('bnine:upload:done', true, false, detail);
+                window.parent.document.dispatchEvent(ev2);
+            }
+        }
+
+        // Dispatcher bnine:upload:error vers le parent
+        function dispatchUploadError(message, errors) {
+            var detail = {
+                message: message,
+                errors: errors || null,
+                origin: origin,
+                endpoint: '{{ endpoint|default("bninefile") }}',
+            };
+            try {
+                var ev = new CustomEvent('bnine:upload:error', { detail: detail, bubbles: true });
+                window.parent.document.dispatchEvent(ev);
+            } catch (e) {
+                var ev2 = window.parent.document.createEvent('CustomEvent');
+                ev2.initCustomEvent('bnine:upload:error', true, false, detail);
+                window.parent.document.dispatchEvent(ev2);
+            }
+        }
+
         Dropzone.options.myDropzone = {
-            paramName: "{{endpoint}}",
+            paramName: "{{ endpoint }}",
             maxFilesize: 20,
             parallelUploads: 5,
             uploadMultiple: false,
@@ -37,18 +87,32 @@
             successmultiple: function (files, response) {
                 lastUploadedFilename = (response && response.filename) ? response.filename : (files.length > 0 ? files[files.length - 1].name : null);
             },
+            error: function (file, errorMessage, xhr) {
+                var msg = (typeof errorMessage === 'string') ? errorMessage : (errorMessage && errorMessage.message) || 'Erreur inconnue';
+                dispatchUploadError(msg, errorMessage);
+            },
             queuecomplete: function () {
                 {% if crop is defined and crop %}
                 if (lastUploadedFilename) {
-                    var cropUrl = '{{ path("bninefiles_files_crop_page", {domain: domain, id: id}) }}?path=' + encodeURIComponent('{{ path }}/' + lastUploadedFilename);
+                    var cropUrl = '{{ path("bninefiles_files_crop_page", {domain: domain, id: id}) }}'
+                        + '?path=' + encodeURIComponent(getBasename(lastUploadedFilename))
+                        + '&min_size={{ minSize|default(300) }}'
+                        + '&ratio=' + encodeURIComponent('{{ ratio|default('1/1') }}')
+                        + '&configurable={{ configurable|default(false) ? '1' : '0' }}'
+                        + '&origin=' + encodeURIComponent(origin || '');
                     window.location.href = cropUrl;
                 } else {
                     window.parent.BnineModalClose();
                 }
                 {% else %}
-                window.parent.imageUploadDone('{{ path }}/' + lastUploadedFilename);
+                if (lastUploadedFilename) {
+                    var fileUrl = '{{ path("bninefiles_files_image", {domain: domain, id: id}) }}?path=' + encodeURIComponent(getBasename(lastUploadedFilename));
+                    dispatchUploadDone(getBasename(lastUploadedFilename), fileUrl);
+                }
+                window.parent.BnineModalClose();
                 {% endif %}
             }
         };
     </script>
-{% endblock %}
+</body>
+</html>

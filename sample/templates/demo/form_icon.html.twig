@@ -1,0 +1,243 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Form Icon - Sample{% endblock %}
+
+{% block body %}
+<div class="container">
+    <h1><i class="fas fa-user-circle me-2"></i>Form Symfony avec IconUploadType</h1>
+    <p class="text-muted">
+        Vrai formulaire Symfony utilisant <code>IconUploadType</code> du bundle.
+        Démontre les options <code>crop</code>, <code>crop_min_size</code>, <code>crop_ratio</code>,
+        <code>crop_configurable</code> et <code>preview_max_height</code>.
+    </p>
+
+    {{ form_start(form, {attr: {id: 'demo-form-icon', novalidate: 'novalidate'}}) }}
+
+    <div class="card">
+        <div class="card-body">
+            <div class="mb-3">
+                {{ form_row(form.title) }}
+            </div>
+
+            <hr>
+
+            <h5 class="mb-3">5 icônes : 4 avec crop + 1 sans crop (upload simple)</h5>
+
+            <div class="row">
+                <div class="col-md-6 mb-4">
+                    {{ form_label(form.avatar) }}
+                    {{ form_widget(form.avatar) }}
+                    <small class="text-muted d-block mt-1">
+                        crop <code>1/1</code>, min_size <code>300</code>, configurable <code>false</code>, preview <code>100px</code>.
+                    </small>
+                </div>
+                <div class="col-md-6 mb-4">
+                    {{ form_label(form.banner) }}
+                    {{ form_widget(form.banner) }}
+                    <small class="text-muted d-block mt-1">
+                        crop <code>16/9</code>, min_size <code>400</code>, configurable <code>true</code>, preview <code>250px</code>.
+                    </small>
+                </div>
+                <div class="col-md-6 mb-4">
+                    {{ form_label(form.portrait) }}
+                    {{ form_widget(form.portrait) }}
+                    <small class="text-muted d-block mt-1">
+                        crop <code>3/4</code>, min_size <code>250</code>, configurable <code>true</code>, preview <code>200px</code>.
+                    </small>
+                </div>
+                <div class="col-md-6 mb-4">
+                    {{ form_label(form.free) }}
+                    {{ form_widget(form.free) }}
+                    <small class="text-muted d-block mt-1">
+                        crop <code>free</code>, min_size <code>200</code>, configurable <code>true</code>, preview <code>300px</code>.
+                    </small>
+                </div>
+                <div class="col-md-6 mb-4">
+                    {{ form_label(form.simple) }}
+                    {{ form_widget(form.simple) }}
+                    <small class="text-muted d-block mt-1">
+                        Upload simple <code>crop=false</code> : modale DropzoneJS uniquement, pas de CropperJS.
+                        Le path retourné est <code>_thumbs/{file}.jpg</code> (domaine public).
+                    </small>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-save me-1"></i>Enregistrer
+                </button>
+            </div>
+        </div>
+    </div>
+
+    {{ form_end(form) }}
+
+    {# ============ Code d'usage ============ #}
+    <div class="card mt-4">
+        <div class="card-header"><i class="fas fa-code me-2"></i>Code d'usage</div>
+        <div class="card-body">
+
+            <h6 class="text-muted">1. Contrôleur</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>// src/Controller/DemoIconController.php
+use App\Form\DemoIconType;
+use App\Form\Dto\DemoIconDto;
+
+#[Route('/form-icon', name: 'demo_form_icon')]
+public function formIcon(Request $request): Response
+{
+    $dto = new DemoIconDto();
+    $form = $this->createForm(DemoIconType::class, $dto);
+    $form-&gt;handleRequest($request);
+
+    if ($form-&gt;isSubmitted() &amp;&amp; $form-&gt;isValid()) {
+        // $dto-&gt;avatar, $dto-&gt;banner, $dto-&gt;portrait, $dto-&gt;free, $dto-&gt;simple : string|null
+        return $this-&gt;render('demo/form_icon_result.html.twig', [
+            'title' =&gt; $dto-&gt;title,
+            'dto'   =&gt; $dto,
+        ]);
+    }
+
+    return $this-&gt;render('demo/form_icon.html.twig', [
+        'form' =&gt; $form-&gt;createView(),
+    ]);
+}</code></pre>
+
+            <h6 class="text-muted">2. DTO</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>// src/Form/Dto/DemoIconDto.php
+class DemoIconDto
+{
+    public ?string $title = null;
+    public ?string $avatar = null;
+    public ?string $banner = null;
+    public ?string $portrait = null;
+    public ?string $free = null;
+    /** Upload simple SANS crop (path = fichier original ou _thumbs/ pour les domaines publics) */
+    public ?string $simple = null;
+}</code></pre>
+
+            <h6 class="text-muted">3. Form Type — toutes les options d'IconUploadType</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>// src/Form/DemoIconType.php
+use Bnine\FilesBundle\Form\Type\IconUploadType;
+use Symfony\Component\Form\AbstractType;
+use Symfony\Component\Form\Extension\Core\Type\TextType;
+use Symfony\Component\Form\FormBuilderInterface;
+
+class DemoIconType extends AbstractType
+{
+    public function buildForm(FormBuilderInterface $builder, array $options): void
+    {
+        $builder
+            -&gt;add('title', TextType::class, ['label' =&gt; 'Titre'])
+
+            // === Variante 1 : crop carré 300, non configurable, preview 100 ===
+            -&gt;add('avatar', IconUploadType::class, [
+                'label'               =&gt; 'Avatar carré',
+                'icon_label'          =&gt; 'Avatar carré',    // titre de la modale
+                'icon_empty_preview'  =&gt; '',                 // URL placeholder si vide
+                'icon_domain'         =&gt; 'avatar',          // domaine de stockage
+                'icon_entity_id'      =&gt; 0,                 // id de l'entité propriétaire
+                'crop'                =&gt; true,              // active le recadrage
+                'crop_min_size'       =&gt; 300,               // taille minimale finale (largeur ET hauteur)
+                'crop_ratio'          =&gt; '1/1',             // ratio ('1/1', '16/9', '4/3', 'free', ...)
+                'crop_configurable'   =&gt; false,             // false = champs cachés, true = éditables
+                'preview_max_height'  =&gt; 100,               // hauteur max du thumb de retour (px)
+            ])
+
+            // === Variante 2 : crop bannière 16/9, configurable, preview 250 ===
+            -&gt;add('banner', IconUploadType::class, [
+                'label'               =&gt; 'Avatar bannière',
+                'icon_label'          =&gt; 'Bannière',
+                'icon_empty_preview'  =&gt; '',
+                'icon_domain'         =&gt; 'avatar',
+                'icon_entity_id'      =&gt; 0,
+                'crop'                =&gt; true,
+                'crop_min_size'       =&gt; 400,
+                'crop_ratio'          =&gt; '16/9',
+                'crop_configurable'   =&gt; true,
+                'preview_max_height'  =&gt; 250,
+            ])
+
+            // === Variante 3 : crop portrait 3/4, configurable, preview 200 ===
+            -&gt;add('portrait', IconUploadType::class, [
+                'label'               =&gt; 'Avatar portrait',
+                'icon_label'          =&gt; 'Portrait',
+                'icon_empty_preview'  =&gt; '',
+                'icon_domain'         =&gt; 'avatar',
+                'icon_entity_id'      =&gt; 0,
+                'crop'                =&gt; true,
+                'crop_min_size'       =&gt; 250,
+                'crop_ratio'          =&gt; '3/4',
+                'crop_configurable'   =&gt; true,
+                'preview_max_height'  =&gt; 200,
+            ])
+
+            // === Variante 4 : crop libre (ratio=free), configurable, preview 300 ===
+            -&gt;add('free', IconUploadType::class, [
+                'label'               =&gt; 'Avatar libre',
+                'icon_label'          =&gt; 'Libre',
+                'icon_empty_preview'  =&gt; '',
+                'icon_domain'         =&gt; 'avatar',
+                'icon_entity_id'      =&gt; 0,
+                'crop'                =&gt; true,
+                'crop_min_size'       =&gt; 200,
+                'crop_ratio'          =&gt; 'free',
+                'crop_configurable'   =&gt; true,
+                'preview_max_height'  =&gt; 300,
+            ])
+
+            // === Variante 5 : upload simple SANS crop ===
+            // domain 'avatar' = public : le controller copie le fichier en _thumbs/{file}.jpg
+            // et renvoie le path du thumb au widget parent.
+            -&gt;add('simple', IconUploadType::class, [
+                'label'               =&gt; 'Avatar SANS crop',
+                'icon_label'          =&gt; 'Avatar simple',
+                'icon_empty_preview'  =&gt; '',
+                'icon_domain'         =&gt; 'avatar',
+                'icon_entity_id'      =&gt; 0,
+                'crop'                =&gt; false,             // ← clé : désactive le recadrage
+                'preview_max_height'  =&gt; 150,
+            ]);
+    }
+
+    public function configureOptions(\\Symfony\\Component\\OptionsResolver\\OptionsResolver $resolver): void
+    {
+        $resolver-&gt;setDefaults([
+            'data_class'      =&gt; DemoIconDto::class,
+            'csrf_protection' =&gt; false,
+        ]);
+    }
+}</code></pre>
+
+            <h6 class="text-muted">4. Récapitulatif des options <code>IconUploadType</code></h6>
+            <table class="table table-sm table-bordered">
+                <thead><tr><th>Option</th><th>Type</th><th>Défaut</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><code>label</code></td><td>string</td><td>—</td><td>Label Symfony standard.</td></tr>
+                    <tr><td><code>icon_label</code></td><td>string</td><td><code>"Icon"</code></td><td>Titre de la modale d'upload + texte du bouton.</td></tr>
+                    <tr><td><code>icon_empty_preview</code></td><td>string</td><td>—</td><td>URL d'une image placeholder quand l'input est vide.</td></tr>
+                    <tr><td><code>icon_domain</code></td><td>string</td><td><code>"avatar"</code></td><td>Domaine de stockage (sous-dossier dans <code>uploads/</code>).</td></tr>
+                    <tr><td><code>icon_entity_id</code></td><td>int|string</td><td><code>0</code></td><td>ID de l'entité propriétaire des fichiers.</td></tr>
+                    <tr><td><code>crop</code></td><td>bool</td><td><code>false</code></td><td>Active le recadrage après upload. <code>false</code> = upload simple.</td></tr>
+                    <tr><td><code>crop_min_size</code></td><td>int</td><td><code>300</code></td><td>Taille minimale finale (largeur ET hauteur), bornes 50–2000.</td></tr>
+                    <tr><td><code>crop_ratio</code></td><td>string</td><td><code>"1/1"</code></td><td>Ratio largeur/hauteur (<code>1/1</code>, <code>16/9</code>, <code>4/3</code>, <code>free</code>, …).</td></tr>
+                    <tr><td><code>crop_configurable</code></td><td>bool</td><td><code>false</code></td><td><code>true</code> = champs min_size et ratio éditables dans la modale crop.</td></tr>
+                    <tr><td><code>preview_max_height</code></td><td>int</td><td><code>100</code></td><td>Hauteur max du thumb de retour dans le widget parent (px).</td></tr>
+                </tbody>
+            </table>
+
+            <h6 class="text-muted">5. Domaine public : comportement automatique</h6>
+            <p class="small">
+                Si <code>icon_domain</code> vaut <code>avatar</code>, <code>logo</code> ou <code>icon</code>,
+                le bundle renomme le fichier uploadé en <code>bin2hex(random_bytes(16)).{ext}</code> et crée
+                automatiquement un thumb (copie) pour les modes avec crop + sans crop.
+                Le path stocké dans l'input est alors de la forme <code>_thumbs/{file}.{ext}</code>.
+            </p>
+
+            <h6 class="text-muted">6. Twig template (rendu par défaut)</h6>
+            <pre class="small bg-light p-3 rounded mb-0"><code>{% verbatim %}{{ form_label(form.image) }}
+{{ form_widget(form.image) }}
+{# Le thème générique Symfony rend le widget, le JS du bundle s'occupe de la preview + modale. #}{% endverbatim %}</code></pre>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{
+    "name": "bnine/filesbundle-sample",
+    "description": "Sample app demonstrating every feature of bnine/filesbundle",
+    "type": "project",
+    "license": "MIT",
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../",
+            "options": {
+                "symlink": false
+            }
+        }
+    ],
+    "require": {
+        "php": ">=8.2 <8.4",
+        "ext-ctype": "*",
+        "ext-iconv": "*",
+        "ext-gd": "*",
+        "symfony/console": "~7.1.0",
+        "symfony/dotenv": "~7.1.0",
+        "symfony/framework-bundle": "~7.1.0",
+        "symfony/runtime": "~7.1.0",
+        "symfony/twig-bundle": "~7.1.0",
+        "symfony/yaml": "~7.1.0",
+        "symfony/security-bundle": "~7.1.0",
+        "symfony/form": "~7.1.0",
+        "symfony/asset": "~7.1.0",
+        "symfony/validator": "~7.1.0",
+        "symfony/var-dumper": "~7.1.0",
+        "symfony/var-exporter": "~7.1.0",
+        "symfony/mime": "~7.1.0",
+        "symfony/property-access": "~7.1.0",
+        "symfony/property-info": "~7.1.0",
+        "twig/twig": "^3.0",
+        "imagine/imagine": "^1.0",
+        "league/flysystem": "^3.0",
+        "league/flysystem-bundle": "~3.4.0",
+        "league/commonmark": "^2.0",
+        "bnine/filesbundle": "*"
+    },
+    "config": {
+        "allow-plugins": {
+            "symfony/flex": true,
+            "symfony/runtime": true
+        },
+        "sort-packages": true
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "App\\Tests\\": "tests/"
+        }
+    },
+    "replace": {
+        "symfony/polyfill-ctype": "*",
+        "symfony/polyfill-iconv": "*",
+        "symfony/polyfill-php72": "*",
+        "symfony/polyfill-php73": "*",
+        "symfony/polyfill-php74": "*",
+        "symfony/polyfill-php80": "*",
+        "symfony/polyfill-php81": "*"
+    },
+    "scripts": {
+        "auto-scripts": []
+    },
+    "extra": {
+        "symfony": {
+            "allow-contrib": false,
+            "require": "7.1.*"
+        }
+    }
+}

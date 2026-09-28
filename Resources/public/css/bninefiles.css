@@ -58,6 +58,14 @@
     columns: 4 200px;
     column-gap: 0.75rem;
 }
+/* Override via attribut data-grid-cols sur le container (utilisé par le widget _select) */
+.file-gallery-grid[data-grid-cols="2"] { columns: 2 200px; }
+.file-gallery-grid[data-grid-cols="3"] { columns: 3 200px; }
+.file-gallery-grid[data-grid-cols="4"] { columns: 4 200px; }
+.file-gallery-grid[data-grid-cols="5"] { columns: 5 180px; }
+.file-gallery-grid[data-grid-cols="6"] { columns: 6 160px; }
+.file-gallery-grid[data-grid-cols="7"] { columns: 7 140px; }
+.file-gallery-grid[data-grid-cols="8"] { columns: 8 130px; }
 .file-gallery-item {
     position: relative;
     border-radius: 0.375rem;
@@ -71,6 +79,9 @@
     height: auto;
     display: block;
 }
+/* Bouton delete : invisible par défaut, visible au hover de l'image.
+   Cohérent en mode select et non-select : pas d'affichage permanent
+   pour ne pas masquer la coche de sélection. */
 .file-gallery-item .file-gallery-delete {
     position: absolute;
     top: 0.25rem;
@@ -141,4 +152,22 @@
 }
 .file-gallery-item.selectable.selected .select-overlay {
     display: flex;
+}
+
+/*== Sticky validate bar (multiple mode) ===================================*/
+.bnine-gallery-sticky-validate {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    margin-top: 1rem;
+    background: var(--bs-body-bg, #fff);
+    border-top: 1px solid var(--bs-border-color, #dee2e6);
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.06);
+}
+.file-gallery {
+    padding-bottom: 0.5rem;
 }

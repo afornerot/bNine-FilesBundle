@@ -1,0 +1,22 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}README - bNine-FilesBundle Sample{% endblock %}
+
+{% block body %}
+    <h1><i class="fas fa-book me-2"></i>README du bundle</h1>
+    <p class="text-muted">
+        Le README.md du bundle <code>bnine/filesbundle</code>, affiche en HTML via
+        <a href="https://commonmark.thephpleague.com/" target="_blank" rel="noopener">league/commonmark</a>
+        (GitHub Flavored Markdown).
+        <br>La source est lue depuis
+        <code>vendor/bnine/filesbundle/README.md</code> (bind-monte sur le sample via Docker).
+    </p>
+
+    <div class="card">
+        <div class="card-body">
+            <article class="markdown-body">
+                {{ readme_html|raw }}
+            </article>
+        </div>
+    </div>
+{% endblock %}

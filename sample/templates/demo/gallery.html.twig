@@ -1,0 +1,110 @@
+{% extends 'base.html.twig' %}
+
+{% set editable = app.request.query.get('editable', '1') %}
+{% set is_write = editable == '1' %}
+
+{% block title %}Gallery - Sample{% endblock %}
+
+{% block body %}
+<div class="container">
+    <h1><i class="fas fa-th me-2"></i>Galerie d'images</h1>
+    <p class="text-muted">
+        Domain <code>{{ domain }}</code> · Entity ID <code>{{ entity_id }}</code> ·
+        Mode <code>{{ is_write ? 'write' : 'read' }}</code>
+    </p>
+
+    <ul class="nav nav-pills mb-3">
+        <li class="nav-item">
+            <a class="nav-link {{ is_write ? 'active' : '' }}" href="?editable=1">
+                <i class="fas fa-pen me-1"></i> Mode écriture
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {{ not is_write ? 'active' : '' }}" href="?editable=0">
+                <i class="fas fa-eye me-1"></i> Mode lecture
+            </a>
+        </li>
+    </ul>
+
+    <p class="text-muted small">
+        {% if is_write %}
+            <i class="fas fa-info-circle me-1"></i> Mode écriture : upload, dossiers, suppression.
+        {% else %}
+            <i class="fas fa-info-circle me-1"></i> Mode lecture : visualisez les images en lightbox et téléchargez-les.
+        {% endif %}
+    </p>
+
+    {# === Rendu de la galerie via le contrôleur du bundle === #}
+    {% set html = render(controller(
+        'Bnine\\FilesBundle\\Controller\\FileController::gallery',
+        { domain: domain, id: entity_id, editable: editable }
+    )) %}
+    {{ html|raw }}
+
+    {# === Code d'usage === #}
+    <div class="card mt-4">
+        <div class="card-header"><i class="fas fa-code me-2"></i>Code d'usage</div>
+        <div class="card-body">
+            <h6 class="text-muted">1. Contrôleur (Symfony)</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>// src/Controller/DemoController.php
+#[Route('/gallery', name: 'demo_gallery')]
+public function gallery(): Response
+{
+    return $this->render('demo/gallery.html.twig', [
+        'domain'    =&gt; 'sample',
+        'entity_id' =&gt; 1,
+    ]);
+}</code></pre>
+
+            <h6 class="text-muted">2. Template (Twig) — rendu de la galerie</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>{% verbatim %}{# demo/gallery.html.twig #}
+{% set html = render(controller(
+    'Bnine\\FilesBundle\\Controller\\FileController::gallery',
+    { domain: domain, id: entity_id, editable: 1 }
+)) %}
+{{ html|raw }}{% endverbatim %}</code></pre>
+
+            <h6 class="text-muted">3. Paramètres de <code>FileController::gallery()</code></h6>
+            <table class="table table-sm table-bordered">
+                <thead><tr><th>Param</th><th>Type</th><th>Obligatoire</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><code>domain</code></td><td>string</td><td>oui</td><td>Sous-domaine de stockage.</td></tr>
+                    <tr><td><code>id</code></td><td>string|int</td><td>oui</td><td>Identifiant de l'entité propriétaire.</td></tr>
+                    <tr><td><code>editable</code></td><td>0|1</td><td>non (défaut <code>1</code>)</td><td>1 = boutons upload/dossier/suppression, 0 = lecture seule.</td></tr>
+                    <tr><td><code>compact</code></td><td>0|1</td><td>non (défaut <code>0</code>)</td><td>1 = retire les wrappers card/header.</td></tr>
+                    <tr><td><code>select</code></td><td>string</td><td>non</td><td>
+                        Mode sélection :<br>
+                        <code>'onSelectSingle'</code> : clic sur une image = sélection immédiate (ferme la modale).<br>
+                        <code>'multiple'</code>    : multi-sélection via checkboxes, bouton « Valider » sticky.<br>
+                        Vide = mode galerie classique (lightbox).
+                    </td></tr>
+                    <tr><td><code>path</code></td><td>string</td><td>non</td><td>Sous-dossier courant à l'intérieur de <code>{domain}/{id}/</code>. Passé en query string.</td></tr>
+                </tbody>
+            </table>
+
+            <h6 class="text-muted">4. Routes du bundle utilisées</h6>
+            <table class="table table-sm table-bordered">
+                <thead><tr><th>Route</th><th>Méthode</th><th>Rôle</th></tr></thead>
+                <tbody>
+                    <tr><td><code>bninefiles_files_gallery</code></td><td>GET</td><td>Rendu de la galerie (ré-appelé en AJAX lors de la navigation).</td></tr>
+                    <tr><td><code>bninefiles_files_uploadmodal</code></td><td>GET</td><td>Page d'upload (iframe) avec Dropzone (imageOnly=1).</td></tr>
+                    <tr><td><code>bninefiles_files_uploadfile</code></td><td>POST</td><td>Upload de l'image (multipart).</td></tr>
+                    <tr><td><code>bninefiles_files_thumbnail</code></td><td>GET</td><td>Thumbnail auto-généré 300x300 pour chaque vignette.</td></tr>
+                    <tr><td><code>bninefiles_files_image</code></td><td>GET</td><td>Image source (utilisée par la lightbox).</td></tr>
+                    <tr><td><code>bninefiles_files_download</code></td><td>GET</td><td>Téléchargement de l'image.</td></tr>
+                    <tr><td><code>bninefiles_files_delete</code></td><td>POST</td><td>Suppression d'une image ou d'un dossier.</td></tr>
+                    <tr><td><code>bninefiles_files_mkdir</code></td><td>POST</td><td>Création d'un sous-dossier.</td></tr>
+                </tbody>
+            </table>
+
+            <h6 class="text-muted">5. Notes techniques</h6>
+            <ul class="small">
+                <li>Les vignettes utilisent <code>bninefiles_files_thumbnail</code> (Imagine + GD/Imagick), avec cache navigateur 30 jours.</li>
+                <li>La lightbox est initialisée via <code>GLightbox({loop:true, touchNavigation:true, preload:true})</code>.</li>
+                <li>En mode <code>select=multiple</code>, la galerie expose un bouton sticky « Valider (n) » en bas.</li>
+                <li>Les fichiers non-image sont listés dans un bloc séparé « Autres fichiers ».</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

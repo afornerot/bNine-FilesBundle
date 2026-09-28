@@ -4,6 +4,7 @@
      class="file-browser"
      data-domain="{{ domain }}"
      data-id="{{ id }}"
+     data-instance="browse-{{ domain }}-{{ id }}-{{ editable ? 'write' : 'read' }}"
      data-base-path="{{ path('bninefiles_files', { domain: domain, id: id, editable: editable, compact: compact ? 1 : null }) }}"
      data-current-path="{{ path }}"
      data-delete-url="{{ path('bninefiles_files_delete', { domain: domain, id: id }) }}"
@@ -15,13 +16,15 @@
         <div class="card-header">Fichiers</div>
         <div class="card-body">
     {% endif %}
-
             {% if editable %}
                 <div class="mb-3 d-flex align-items-center justify-content-between flex-wrap">
                     <div class="btn-group mb-2 mb-md-0" role="group">
                         <button type="button"
-                            class="btn btn-info"
-                            onclick="BnineModalOpen({id:'mymodalupload-{{ domain }}-{{ id|e('html_attr') }}',title:'Upload',url:'{{ path('bninefiles_files_uploadmodal',{domain:domain, id:id,path:path}) }}',height:'600px',onClose:function(){var c='file-browser-{{ domain }}-{{ id|e('html_attr') }}';var p=$('#'+c).data('current-path')||'';$.get('{{ path('bninefiles_files',{domain:domain,id:id,editable:editable,compact:compact?1:null}) }}',{path:p},function(h){var $d=$('<div>').html(h);$d.find('#'+c).length&&$('#'+c).replaceWith($d.find('#'+c))})}});"
+                            class="btn btn-info bnine-browser-upload-btn"
+                            data-domain="{{ domain }}"
+                            data-id="{{ id }}"
+                            data-upload-url="{{ path('bninefiles_files_uploadmodal', {domain: domain, id: id, path: path}) }}"
+                            data-reload-url="{{ path('bninefiles_files', {domain: domain, id: id, editable: editable, compact: compact ? 1 : null}) }}"
                             title="Téléverser un fichier">
                             <i class="fas fa-upload me-1"></i> Upload
                         </button>
@@ -224,6 +227,13 @@ $(function () {
             return;
         }
 
+        // Validation client : refuse les séparateurs de chemin et caractères réservés Windows.
+        // Le serveur revalide en complément (cf. FileService::makeDirectory).
+        if (!/^[a-zA-Z0-9\-_\s.]+$/.test(folderName)) {
+            alert('Nom de dossier invalide.\nCaractères autorisés : lettres, chiffres, tirets, underscores, espaces, points.');
+            return;
+        }
+
         $.post($container.data('mkdir-url'), {
             path: currentPath,
             name: folderName
@@ -239,6 +249,46 @@ $(function () {
         });
     });
 
+});
+</script>
+
+<script>
+// Bouton Upload du browser standalone : ouvre la modale avec un widgetId unique
+// pour que l'event bnine:upload:done ait un origin non-null.
+$(document).off('click.bninebrowserupload', '.bnine-browser-upload-btn').on('click.bninebrowserupload', '.bnine-browser-upload-btn', function (e) {
+    e.preventDefault();
+    var $btn = $(this);
+    var domain = $btn.data('domain');
+    var id = $btn.data('id');
+    var url = $btn.data('upload-url');
+    var reloadUrl = $btn.data('reload-url');
+
+    // Generer un UUID unique pour ce bouton
+    var widgetId = (typeof bnineUuid === 'function') ? bnineUuid() : ('browser-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+
+    // Injecter l'origin dans l'URL d'upload pour que l'iframe puisse le recuperer
+    if (url.indexOf('origin=') === -1) {
+        url += (url.indexOf('?') === -1 ? '?' : '&') + 'origin=' + encodeURIComponent(widgetId);
+    }
+
+    if (typeof window.BnineModalOpen === 'function') {
+        window.BnineModalOpen({
+            id: 'mymodalupload-' + domain + '-' + id,
+            title: 'Upload',
+            url: url,
+            height: '600px',
+            widgetId: widgetId,
+            endpoint: 'browse',
+            onClose: function () {
+                var c = 'file-browser-' + domain + '-' + id;
+                var p = $('#' + c).data('current-path') || '';
+                $.get(reloadUrl, { path: p }, function (h) {
+                    var $d = $('<div>').html(h);
+                    $d.find('#' + c).length && $('#' + c).replaceWith($d.find('#' + c));
+                });
+            }
+        });
+    }
 });
 </script>
 

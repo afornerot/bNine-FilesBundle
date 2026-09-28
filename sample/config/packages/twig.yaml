@@ -1,0 +1,11 @@
+twig:
+    default_path: '%kernel.project_dir%/templates'
+    paths:
+        '%kernel.project_dir%/vendor/bnine/filesbundle/templates': BnineFilesBundle
+    globals:
+        bninefile: '@Bnine\FilesBundle\Twig\BnineFileExtension'
+    # Active le theme Twig fourni par le bundle pour le rendu de SelectFileType
+    # (surcharge les blocs hidden_widget/hidden_row pour intercepter les champs
+    # SelectFileType et les rendre avec le widget bundle complet).
+    form_themes:
+        - '@BnineFilesBundle/Form/_theme.html.twig'

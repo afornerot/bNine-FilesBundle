@@ -1,0 +1,51 @@
+{#
+    Partial Twig surchargeable : assets chargés dans les iframes du bundle.
+
+    Par défaut, le bundle charge les libs tierces minimales nécessaires au
+    bon fonctionnement de ses templates standalone (upload.html.twig, crop.html.twig).
+
+    Les fichiers viennent de Resources/public/lib/ (libs tierces) et Resources/public/
+    (assets natifs du bundle), publiés via `assets:install` dans
+    public/bundles/bninefiles/ de l'app hôte.
+
+    L'application hôte peut SURCHARGER ce partial en créant :
+        templates/bundles/BnineFilesBundle/partials/_iframe_assets.html.twig
+
+    Avec ce mécanisme :
+    - Si l'app n'a pas de surcharge : le bundle charge jQuery + Bootstrap + Dropzone
+      ou Cropper (selon le contexte d'inclusion) + bninefiles.js pour BnineModalClose.
+    - Si l'app surcharge : elle contrôle totalement les assets chargés dans les iframes
+      (par exemple pour pointer vers ses assets buildés via Webpack/AssetMapper).
+
+    Variables disponibles :
+        - _iframe_context : 'upload' | 'crop' (selon le template qui inclut le partial)
+
+    Utilisation :
+        {{ include('@BnineFiles/partials/_iframe_assets.html.twig',
+            with {_iframe_context: 'upload'}) }}
+
+    ⚠️ Ce partial NE DOIT PAS être inclus dans le template principal :
+    il est conçu pour les fragments standalone du bundle (iframes).
+    Pour le reste de l'application, l'app hôte inclut ses libs dans son layout.
+#}
+{% if _iframe_context == 'upload' %}
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/fontawesome.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/dropzone.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/css/bninefiles.css') }}">
+    <script src="{{ asset('bundles/bninefiles/lib/js/jquery.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/lib/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/lib/js/dropzone.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/js/bninefiles.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/js/bninefiles-constants.js') }}"></script>
+{% elseif _iframe_context == 'crop' %}
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/fontawesome.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/cropper.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/css/bninefiles.css') }}">
+    <script src="{{ asset('bundles/bninefiles/lib/js/jquery.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/lib/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/lib/js/cropper.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/js/bninefiles.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/js/bninefiles-constants.js') }}"></script>
+{% endif %}

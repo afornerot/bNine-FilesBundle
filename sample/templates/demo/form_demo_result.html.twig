@@ -1,0 +1,61 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Résultat du formulaire{% endblock %}
+
+{% block body %}
+<div class="container">
+    <h1><i class="fas fa-check-circle me-2 text-success"></i>Formulaire valide</h1>
+    <p class="text-muted">Voici les données reçues du DTO après soumission :</p>
+
+    <div class="card">
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Titre</dt>
+                <dd class="col-sm-9"><code>{{ title }}</code></dd>
+
+                <dt class="col-sm-3">Image (single)</dt>
+                <dd class="col-sm-9">
+                    <code>{{ image }}</code>
+                    {% if image %}
+                        <div class="mt-2">
+                            <img src="{{ bninefile(image) }}" alt="" style="max-height: 150px; border-radius: 4px;">
+                        </div>
+                    {% endif %}
+                </dd>
+
+                <dt class="col-sm-3">Gallery (multiple)</dt>
+                <dd class="col-sm-9">
+                    {% if gallery|length > 0 %}
+                        <div class="d-flex flex-wrap gap-2 mt-2">
+                            {% for item in gallery %}
+                                <img src="{{ bninefile(item) }}" alt="" style="width: 100px; height: 80px; object-fit: cover; border-radius: 4px;">
+                            {% endfor %}
+                        </div>
+                        <pre class="mt-2 small text-muted"><code>{{ gallery|json_encode(constant('JSON_PRETTY_PRINT')) }}</code></pre>
+                    {% else %}
+                        <em class="text-muted">aucune</em>
+                    {% endif %}
+                </dd>
+            </dl>
+
+            <h6 class="mt-4 text-muted">Code d'usage côté contrôleur</h6>
+            <pre class="small bg-light p-3 rounded mb-3"><code>if ($form-&gt;isSubmitted() &amp;&amp; $form-&gt;isValid()) {
+    $data = $form-&gt;getData();
+
+    // $data-&gt;image   : string|null (chemin, ex: "sample/1/01-008.jpg")
+    // $data-&gt;gallery : string JSON (ex: '["sample/1/01-008.jpg", "sample/1/02-030.jpg"]')
+
+    $paths = json_decode($data-&gt;gallery ?? '[]', true) ?: [];
+
+    // Affichage Twig :
+    //   &lt;img src=&quot;{{ '{{ bninefile(article.image) }}' }}&quot;&gt;
+    //   {% for p in paths %} &lt;img src=&quot;{{ '{{ bninefile(p) }}' }}&quot;&gt; {% endfor %}
+}</code></pre>
+
+            <a href="{{ path('demo_form') }}" class="btn btn-secondary mt-3">
+                <i class="fas fa-arrow-left me-1"></i>Retour au formulaire
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

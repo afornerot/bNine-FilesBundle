@@ -1,0 +1,26 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+
+    App\:
+        resource: '../src/'
+        exclude:
+            - '../src/Kernel.php'
+
+    App\Controller\:
+        resource: '../src/Controller/'
+        tags: ['controller.service_arguments']
+
+    Bnine\FilesBundle\Service\FileService:
+        arguments:
+            $storage: '@app.storage'
+            $s3: false
+
+    Bnine\FilesBundle\Twig\BnineFileExtension:
+        tags: ['twig.extension']
+
+    # CachePolicy custom du sample : avatars/logos en private + 5min,
+    # autres domaines = defaut du bundle (public + 30 jours).
+    Bnine\FilesBundle\Cache\CachePolicyInterface: '@App\Cache\SampleCachePolicy'

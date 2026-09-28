@@ -1,0 +1,199 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Demo : sélection unique{% endblock %}
+
+{% block body %}
+<div class="container">
+    <h1><i class="fas fa-image me-2"></i>Démo widget single</h1>
+    <p class="text-muted">
+        Formulaire HTML simple utilisant le widget
+        <code>@BnineFilesBundle/file/_select.html.twig</code> en mode <strong>single</strong>.
+        Le widget est inclus directement (sans Form Type Symfony) : pratique pour intégrer
+        dans une UI 100% custom.
+    </p>
+
+    {# ============ Démo 1 : write + inline + max_height 200 ============ #}
+    <div class="card">
+        <div class="card-body">
+            <h5>1. Mode <code>write</code> + layout <code>inline</code></h5>
+            <p class="text-muted small">
+                Modale avec upload / création de dossier / suppression.
+                Preview à gauche, boutons empilés à droite. Hauteur max image : 200px.
+            </p>
+            <form id="demo-form-single" onsubmit="event.preventDefault(); alert('Valeur envoyée :\\n' + document.querySelector('[name=&quot;article[image]&quot;]').value);">
+                <div class="mb-3">
+                    <label class="form-label">Titre</label>
+                    <input type="text" class="form-control" placeholder="Mon article" value="Mon bel article">
+                </div>
+
+                <div class="mb-3">
+                    {% include '@BnineFilesBundle/file/_select.html.twig' with {
+                        mode: 'single',
+                        access: 'write',
+                        layout: 'inline',
+                        input_name: 'article[image]',
+                        domain: domain,
+                        entity_id: entity_id,
+                        value: image,
+                        label: 'Image de couverture',
+                        required: true,
+                        max_height: 200,
+                        show_name: true
+                    } only %}
+                </div>
+
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-save me-1"></i>Enregistrer
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {# ============ Démo 2 : column + max_height 300 ============ #}
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5>2. Mode <code>write</code> + layout <code>column</code></h5>
+            <p class="text-muted small">
+                Preview au-dessus des boutons (côte à côte, centrés).
+                Utile pour visualiser l'image à sa taille naturelle avec scroll si trop grande.
+            </p>
+
+            {% include '@BnineFilesBundle/file/_select.html.twig' with {
+                mode: 'single',
+                access: 'write',
+                layout: 'column',
+                input_name: 'article[image_column]',
+                domain: domain,
+                entity_id: entity_id,
+                value: image,
+                label: 'Image (column, max_height 300)',
+                required: false,
+                max_height: 300,
+                show_name: true
+            } only %}
+        </div>
+    </div>
+
+    {# ============ Démo 3 : access=read ============ #}
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5>3. Mode <code>read</code> — lecture seule</h5>
+            <p class="text-muted small">
+                Modale en navigation seule : pas d'upload, pas de création de dossier, pas de suppression.
+                Les boutons « Choisir » et « Vider » restent visibles.
+            </p>
+
+            {% include '@BnineFilesBundle/file/_select.html.twig' with {
+                mode: 'single',
+                access: 'read',
+                input_name: 'article[image_display]',
+                domain: domain,
+                entity_id: entity_id,
+                value: 'sample/1/01-008.jpg',
+                label: 'Aperçu lecture seule',
+                show_name: true
+            } only %}
+        </div>
+    </div>
+
+    {# ============ Code d'usage ============ #}
+    <div class="card mt-4">
+        <div class="card-header"><i class="fas fa-code me-2"></i>Code d'usage</div>
+        <div class="card-body">
+
+            <h6 class="text-muted">1. Contrôleur</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>// src/Controller/DemoController.php
+#[Route('/select-demo-single', name: 'demo_select_single')]
+public function selectDemoSingle(): Response
+{
+    return $this-&gt;render('demo/select_demo_single.html.twig', [
+        'domain'    =&gt; 'sample',   // domaine de stockage
+        'entity_id' =&gt; 1,           // id de l'entité propriétaire
+        'image'     =&gt; null,        // valeur initiale (chemin ou null)
+    ]);
+}</code></pre>
+
+            <h6 class="text-muted">2. Inclusion du widget — toutes les options</h6>
+            <pre class="small bg-light p-3 rounded mb-4"><code>{% verbatim %}{% include '@BnineFilesBundle/file/_select.html.twig' with {
+    # === Sélection ===
+    mode: 'single',                  # 'single' (1 image, écrit un chemin string)
+                                     #   'multiple' (N images, écrit un JSON array)
+
+    # === Accès ===
+    access: 'write',                 # 'write' = modale avec upload / dossier / suppression
+                                     # 'read'  = modale en navigation seule (pas d'upload, pas de dossier, pas de suppression)
+                                     # Dans les 2 cas les boutons "Choisir" + "Vider" sont affichés.
+
+    # === Layout ===
+    layout: 'inline',                # 'inline' = preview à gauche | boutons empilés à droite
+                                     # 'column' = preview au-dessus, boutons côte à côte en dessous (centrés)
+
+    # === Identifiants ===
+    input_name: 'article[image]',    # name de l'input hidden (génère input_id automatiquement)
+                                     # optionnel : input_id (sinon auto depuis input_name + random)
+    domain: 'avatar',                # domaine de stockage (ex: avatar, blog, gallery)
+    entity_id: 0,                    # ID de l'entité propriétaire des fichiers
+
+    # === Valeur initiale ===
+    value: image,                    # string (mode single) ou array de strings (mode multiple)
+                                     # Format de string : 'domain/id/path' (ex: 'avatar/0/abc123.jpg')
+
+    # === Label et validation ===
+    label: 'Image de couverture',    # libellé affiché au-dessus (optionnel)
+    required: true,                  # ajoute l'attribut HTML required sur l'input
+
+    # === Apparence ===
+    show_name: true,                 # affiche le nom du fichier sous chaque vignette (défaut : false)
+    max_height: 200,                 # hauteur max en px appliquée à CHAQUE image (max-height CSS)
+                                     # l'image garde sa taille naturelle (object-fit: contain) jusqu'à cette limite
+                                     # défaut : 100
+    grid_cols: 4,                    # nb colonnes de la grille (mode multiple uniquement, défaut : 4)
+    placeholder: 'Aucune image',    # texte affiché dans le placeholder vide
+                                     # défaut : 'Aucune image' (single) ou 'Aucune image sélectionnée' (multiple)
+} only %}{% endverbatim %}</code></pre>
+
+            <h6 class="text-muted">3. Récapitulatif des options du widget</h6>
+            <table class="table table-sm table-bordered">
+                <thead><tr><th>Option</th><th>Type</th><th>Défaut</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td><code>mode</code></td><td>string</td><td><code>'single'</code></td><td><code>'single'</code> = 1 image (stocke un string), <code>'multiple'</code> = N images (stocke un JSON array).</td></tr>
+                    <tr><td><code>access</code></td><td>string</td><td><code>'write'</code></td><td><code>'write'</code> = modale avec upload/dossier/suppression, <code>'read'</code> = modale en sélection seule.</td></tr>
+                    <tr><td><code>layout</code></td><td>string</td><td><code>'inline'</code></td><td><code>'inline'</code> = preview|boutons, <code>'column'</code> = preview/boutons.</td></tr>
+                    <tr><td><code>input_name</code></td><td>string</td><td>auto</td><td>Nom HTML de l'input caché.</td></tr>
+                    <tr><td><code>input_id</code></td><td>string</td><td>auto depuis <code>input_name</code></td><td>ID HTML de l'input caché.</td></tr>
+                    <tr><td><code>domain</code></td><td>string</td><td><code>'uploads'</code></td><td>Domaine de stockage.</td></tr>
+                    <tr><td><code>entity_id</code></td><td>int|string</td><td><code>0</code></td><td>ID de l'entité propriétaire.</td></tr>
+                    <tr><td><code>value</code></td><td>string|array</td><td>—</td><td>Valeur initiale.</td></tr>
+                    <tr><td><code>label</code></td><td>string</td><td>—</td><td>Libellé affiché au-dessus du widget.</td></tr>
+                    <tr><td><code>required</code></td><td>bool</td><td><code>false</code></td><td>Ajoute <code>required</code> sur l'input caché.</td></tr>
+                    <tr><td><code>show_name</code></td><td>bool</td><td><code>false</code></td><td>Affiche le nom du fichier sous chaque vignette.</td></tr>
+                    <tr><td><code>max_height</code></td><td>int</td><td><code>100</code></td><td>Hauteur max de la preview (px).</td></tr>
+                    <tr><td><code>grid_cols</code></td><td>int</td><td><code>4</code></td><td>Nb colonnes (mode multiple uniquement).</td></tr>
+                    <tr><td><code>placeholder</code></td><td>string</td><td>auto</td><td>Texte du placeholder vide.</td></tr>
+                </tbody>
+            </table>
+
+            <h6 class="text-muted">4. Récupération côté serveur</h6>
+            <p class="small">
+                L'input caché envoie un <code>path</code> au format <code>domain/id/path</code> :
+            </p>
+            <pre class="small bg-light p-3 rounded mb-3"><code>{% verbatim %}{# Controller #}
+$path = $request-&gt;request-&gt;get('article')['image'] ?? null;
+// ex: 'sample/1/01-008.jpg'
+
+{# Twig (affichage) #}
+&lt;img src="{{ '{{ bninefile(article.image) }}' }}"&gt;
+{# → &lt;img src="/bninefiles/image/sample/1?path=01-008.jpg"&gt; #}{% endverbatim %}</code></pre>
+
+            <h6 class="text-muted">5. Activation des libs JS</h6>
+            <p class="small">
+                Le widget inclut jQuery + GLightbox + bninefiles.js via les pages gallery.
+                Pour un usage hors gallery (par exemple si vous l'incluez dans une modale custom),
+                chargez au minimum jQuery + bninefiles.js dans votre layout :
+            </p>
+            <pre class="small bg-light p-3 rounded mb-0"><code>{% verbatim %}&lt;script src=&quot;{{ asset('bundles/bninefiles/lib/js/jquery.min.js') }}&quot;&gt;&lt;/script&gt;
+&lt;script src=&quot;{{ asset('bundles/bninefiles/js/bninefiles.js') }}&quot;&gt;&lt;/script&gt;{% endverbatim %}</code></pre>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Accueil - bNine-FilesBundle Sample{% endblock %}
+
+{% block body %}
+    <div class="row g-4">
+        {# ===== Colonne gauche : README du bundle ===== #}
+        <div class="col-lg-7">
+            <h1 class="mb-3">
+                <i class="fas fa-images me-2"></i>bNine-FilesBundle
+            </h1>
+            <p class="lead text-muted mb-4">
+                Démonstration interactive du bundle Symfony pour gérer des fichiers attachés à des entités.
+            </p>
+
+            <div class="card">
+                <div class="card-body">
+                    <article class="markdown-body">
+                        {{ readme_html|raw }}
+                    </article>
+                </div>
+            </div>
+        </div>
+
+        {# ===== Colonne droite : pavets des demos ===== #}
+        <div class="col-lg-5">
+
+            {# --- Pages bundle --- #}
+            <div class="mb-4">
+                <h4 class="border-bottom pb-2"><i class="fas fa-cube me-2"></i>Pages bundle</h4>
+                <p class="text-muted small">
+                    Rendues par <code>Bnine\FilesBundle\Controller\FileController</code> via
+                    <code>render(controller(...))</code>.
+                </p>
+
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="fas fa-folder-open me-2"></i>Browse</h6>
+                        <p class="small text-muted mb-2">Navigateur de fichiers : upload, suppression, dossiers.</p>
+                        <a href="{{ path('demo_browse') }}" class="btn btn-sm btn-primary">Voir</a>
+                        <a href="{{ path('demo_browse', {editable: 0}) }}" class="btn btn-sm btn-outline-secondary">Lecture</a>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="fas fa-th me-2"></i>Gallery</h6>
+                        <p class="small text-muted mb-2">Galerie d'images avec lightbox GLightbox.</p>
+                        <a href="{{ path('demo_gallery') }}" class="btn btn-sm btn-primary">Voir</a>
+                        <a href="{{ path('demo_gallery', {editable: 0}) }}" class="btn btn-sm btn-outline-secondary">Lecture</a>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="fas fa-user-circle me-2"></i>Icon</h6>
+                        <p class="small text-muted mb-2">Icônes HTML avec modale d'upload + crop (5 variantes).</p>
+                        <a href="{{ path('demo_icon') }}" class="btn btn-sm btn-primary">Voir</a>
+                    </div>
+                </div>
+            </div>
+
+            {# --- Form Types --- #}
+            <div class="mb-4">
+                <h4 class="border-bottom pb-2"><i class="fas fa-puzzle-piece me-2"></i>Form Types Symfony</h4>
+                <p class="text-muted small">
+                    <code>IconUploadType</code> et <code>SelectFileType</code> dans un vrai formulaire.
+                </p>
+
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="fas fa-user-circle me-2"></i>IconUploadType (Form)</h6>
+                        <p class="small text-muted mb-2">5 champs avec toutes les options crop.</p>
+                        <a href="{{ path('demo_form_icon') }}" class="btn btn-sm btn-primary">Voir</a>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="fas fa-file-alt me-2"></i>SelectFileType (Form)</h6>
+                        <p class="small text-muted mb-2">Form complet (image + galerie).</p>
+                        <a href="{{ path('demo_form') }}" class="btn btn-sm btn-primary">Voir</a>
+                    </div>
+                </div>
+            </div>
+
+            {# --- Widgets Twig --- #}
+            <div class="mb-4">
+                <h4 class="border-bottom pb-2"><i class="fas fa-code me-2"></i>Widget Twig (include direct)</h4>
+                <p class="text-muted small">
+                    <code>@BnineFilesBundle/file/_select.html.twig</code> hors Form Type.
+                </p>
+
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="fas fa-hand-pointer me-2"></i>Select single</h6>
+                        <p class="small text-muted mb-2">Mode single : 3 démos (write/inline, write/column, read).</p>
+                        <a href="{{ path('demo_select_single') }}" class="btn btn-sm btn-primary">Voir</a>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="fas fa-images me-2"></i>Select multiple</h6>
+                        <p class="small text-muted mb-2">Mode multiple : stockage JSON, 3 démos.</p>
+                        <a href="{{ path('demo_select_multiple') }}" class="btn btn-sm btn-primary">Voir</a>
+                    </div>
+                </div>
+            </div>
+
+            {# --- Cache Policy --- #}
+            <div class="mb-4">
+                <h4 class="border-bottom pb-2"><i class="fas fa-clock me-2"></i>Cache HTTP</h4>
+                <p class="text-muted small">
+                    Stratégie de cache HTTP configurable par fichier via
+                    <code>CachePolicyInterface</code>.
+                </p>
+
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h6 class="card-title"><i class="fas fa-shield-alt me-2"></i>CachePolicy</h6>
+                        <p class="small text-muted mb-2">
+                            Démontre comment configurer le <code>Cache-Control</code>
+                            (max-age, public/private) par fichier.
+                        </p>
+                        <a href="{{ path('demo_cache_policy') }}" class="btn btn-sm btn-primary">Voir</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <a href="{{ path('demo_readme') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-book me-1"></i> Voir le README en page dediee
+                </a>
+            </div>
+        </div>
+    </div>
+{% endblock %}

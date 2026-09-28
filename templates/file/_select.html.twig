@@ -1,0 +1,451 @@
+{#
+    Widget de sélection d'image(s) bNine-FilesBundle.
+
+    Usage :
+        {% include '@BnineFilesBundle/file/_select.html.twig' with {
+            mode: 'single',                              # 'single' ou 'multiple'
+            input_name: 'article[image]',               # name du input hidden (génère input_id)
+            domain: 'avatar',
+            entity_id: 0,
+            value: form.image.vars.value,
+            label: 'Image de l\'article',
+            required: false,
+
+            # Accès
+            access: 'write',                            # 'write' (modifiable) ou 'read' (modale en lecture seule : pas d'upload, pas de dossier, pas de suppression)
+
+            # Layout
+            layout: 'inline',                           # 'inline' (preview | boutons) ou 'column' (preview / boutons)
+
+            # Apparence
+            show_name: false,                           # affiche le nom du fichier sous l'image (false par défaut)
+            max_height: null,                           # hauteur max du container preview (active un scroll si dépassé)
+            grid_cols: 4,                               # nb colonnes de la grille (multiple uniquement)
+        } only %}
+
+    Modes de sélection :
+        - 'single' : sélection d'une image. Stocke le chemin "domain/id/path" dans l'input.
+        - 'multiple' : sélection N images. Stocke un JSON array dans l'input.
+
+    Modes d'accès :
+        - 'write' : la modale permet upload, création de dossiers, suppression.
+        - 'read' : la modale permet seulement navigation et sélection.
+
+    Layouts :
+        - 'inline' : preview à gauche, boutons à droite (sur la même ligne).
+        - 'column' : preview en haut, boutons en dessous (sur des lignes séparées).
+
+    Multi-instance : chaque widget a un ID unique. Pas d'interférence entre widgets.
+    Auto-suffisant : reconstruit les URLs publiques via /bninefiles/image/{domain}/{id}?path=...
+#}
+{% set _mode = mode|default('single') %}
+{% set _access = access|default('write') %}
+{% set _layout = layout|default('inline') %}
+{% set input_name = input_name|default('bninefile[' ~ random() ~ ']') %}
+{% set input_id = input_id|default(input_name|replace({'[': '_', ']': ''})|trim('_') ~ '_' ~ random(10000)) %}
+{% set domain = domain|default('uploads') %}
+{% set entity_id = entity_id|default(0) %}
+{% set label = label|default('') %}
+{% set required = required|default(false) %}
+{% set show_name = show_name|default(false) %}
+{% set max_height = max_height|default(100) %}
+{% set grid_cols = grid_cols|default(4) %}
+{% set placeholder = placeholder|default(_mode == 'multiple' ? 'Aucune image sélectionnée' : 'Aucune image') %}
+{% set preview_id = input_id ~ '_preview' %}
+{% set _select_mode = _mode == 'multiple' ? 'multiple' : 'onSelectSingle' %}
+{% set _is_write = _access == 'write' %}
+{% set _is_column = _layout == 'column' %}
+
+<div class="bnine-file-select {{ _is_write ? '' : 'bnine-file-select-readonly' }}"
+     data-mode="{{ _mode }}"
+     data-access="{{ _access }}"
+     data-layout="{{ _layout }}"
+     data-domain="{{ domain }}"
+     data-entity-id="{{ entity_id }}"
+     data-input-id="{{ input_id }}"
+     data-route-gallery-write="{{ path('bninefiles_files_gallery', {domain: domain, id: entity_id, editable: 1}) }}"
+     data-route-gallery-read="{{ path('bninefiles_files_gallery', {domain: domain, id: entity_id, editable: 0}) }}"
+     data-route-image="{{ path('bninefiles_files_image', {domain: domain, id: entity_id}) }}"
+     data-route-thumb="{{ path('bninefiles_files_thumbnail', {domain: domain, id: entity_id}) }}">
+    {% if label %}
+        <label class="form-label" for="{{ input_id }}">{{ label }}{% if required %} <span class="text-danger">*</span>{% endif %}</label>
+    {% endif %}
+
+    {# Layout :
+       - Single inline      : preview à gauche, boutons empilés à droite
+       - Single column     : preview en haut, boutons empilés en dessous (comportement par défaut du single column)
+       - Multiple inline   : preview à gauche, boutons empilés à droite
+       - Multiple column   : boutons en haut (alignés à gauche), preview en dessous (la grille gère la disposition)
+    #}
+    {% set _buttons_on_top = (_mode == 'multiple' and _is_column) %}
+
+    {# Bloc des boutons : rendu en haut si _buttons_on_top #}
+    {% if _buttons_on_top %}
+        <div class="d-flex flex-row gap-2 mb-2">
+            <button type="button" class="btn btn-sm btn-primary bnine-file-select-btn"
+                    data-input-id="{{ input_id }}">
+                <i class="fas fa-folder-open me-1"></i>
+                Choisir des images
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger bnine-file-clear"
+                    data-input-id="{{ input_id }}">
+                <i class="fas fa-times me-1"></i>Vider
+            </button>
+        </div>
+    {% endif %}
+
+    <div class="{{ _is_column and not _buttons_on_top ? 'd-flex flex-column align-items-center gap-2 mb-2' : (_buttons_on_top ? 'mb-2' : 'd-flex align-items-start gap-3 mb-2') }}">
+        <div id="{{ preview_id }}_wrap"
+             class="bnine-file-preview border rounded p-2 bg-light {{ _mode == 'multiple' ? 'file-gallery-grid' : 'd-flex flex-wrap' }} gap-2 bnine-file-empty"
+             style="{{ _is_column and not _buttons_on_top ? 'justify-content: center;' : '' }}{{ _mode == 'multiple' ? ' width: 100%; min-width: 0;' : '' }}"
+             data-show-name="{{ show_name ? '1' : '0' }}"
+             data-grid-cols="{{ grid_cols }}"
+             data-placeholder="{{ placeholder }}">
+            {# Placeholder initial : affiché quand aucune image n'est sélectionnée #}
+            <div class="bnine-file-placeholder text-muted text-center w-100 d-flex flex-column align-items-center justify-content-center"
+                 style="padding: 1rem; min-height: 80px;">
+                <i class="fas {{ _mode == 'multiple' ? 'fa-images' : 'fa-image' }} fa-2x mb-1 opacity-50"></i>
+                <small>{{ placeholder }}</small>
+            </div>
+        </div>
+
+        {# Boutons : présents en write ET read.
+           En write : la modale permet toutes les actions.
+           En read  : la modale est en navigation seule (pas d'upload, pas de dossier, pas de suppression).
+           Single column : boutons empilés sous le preview, centrés.
+           Single/Multiple inline : boutons empilés à droite du preview.
+           Multiple column : boutons rendus en haut (cf. _buttons_on_top). #}
+        {% if not _buttons_on_top %}
+        <div class="{{ _is_column ? 'd-flex flex-row justify-content-center gap-2' : 'd-flex flex-column gap-2' }}">
+            <button type="button" class="btn btn-sm btn-primary bnine-file-select-btn"
+                    data-input-id="{{ input_id }}">
+                <i class="fas fa-folder-open me-1"></i>
+                {{ _mode == 'multiple' ? 'Choisir des images' : 'Choisir une image' }}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger bnine-file-clear"
+                    data-input-id="{{ input_id }}">
+                <i class="fas fa-times me-1"></i>Vider
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    {# Input hidden : single = string, multiple = JSON array #}
+    <!-- bNine-FilesBundle widget input (mode={{ _mode }}, layout={{ _layout }}, input_name={{ input_name }}) -->
+    <input type="hidden" id="{{ input_id }}" name="{{ input_name }}" value="{{ _mode == 'multiple' and value is iterable ? (value|json_encode) : (value|default('')) }}"{% if required %} required{% endif %}>
+
+    {% if show_name %}
+    <div class="small text-muted bnine-file-current" id="{{ preview_id }}_current"></div>
+    {% endif %}
+</div>
+
+<script>
+(function () {
+    var cfg = {
+        inputId: {{ input_id|json_encode|raw }},
+        previewId: {{ preview_id|json_encode|raw }},
+        mode: {{ _mode|json_encode|raw }},
+        access: {{ _access|json_encode|raw }},
+        layout: {{ _layout|json_encode|raw }},
+        domain: {{ domain|json_encode|raw }},
+        entityId: {{ entity_id|json_encode|raw }},
+        selectMode: {{ _select_mode|json_encode|raw }},
+        showName: {{ show_name ? 'true' : 'false' }},
+        gridCols: {{ grid_cols|json_encode|raw }},
+        maxHeight: {{ max_height|json_encode|raw }},
+        isWrite: {{ _is_write ? 'true' : 'false' }}
+    };
+
+    var $input = document.getElementById(cfg.inputId);
+    var $wrap = document.getElementById(cfg.previewId + '_wrap');
+    var $current = document.getElementById(cfg.previewId + '_current');
+    // Recherche le widget container via data-input-id (plus robuste que .closest())
+    var $widget = document.querySelector('.bnine-file-select[data-input-id="' + cfg.inputId + '"]');
+    if (!$widget) {
+        console.error('[bNineFilesBundle] Widget container introuvable pour', cfg.inputId);
+        return;
+    }
+
+    // Generer un UUID unique pour ce widget (utilise comme 'origin' dans les events).
+    var widgetId = (typeof bnineUuid === 'function') ? bnineUuid() : ('select-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+    $widget.setAttribute('data-instance', widgetId);
+    $input.setAttribute('data-instance', widgetId);
+
+    function buildUrl(itemOrPath) {
+        // Accepte soit un objet {url?, path?} soit une string
+        // Le path peut etre soit 'domain/id/path' (ancien format) soit 'path' pur (nouveau).
+        var p = typeof itemOrPath === 'string' ? itemOrPath : (itemOrPath && itemOrPath.path) ? itemOrPath.path : null;
+        if (!p || typeof p !== 'string') return '';
+        var parts = p.split('/');
+        if (parts.length >= 3) {
+            // Format 'domain/id/path' : utilise le data-route-image du widget
+            var base = $widget.dataset.routeImage || ('/bninefiles/image/' + parts[0] + '/' + parts[1]);
+            return base + '?path=' + encodeURIComponent(parts.slice(2).join('/'));
+        }
+        // Format 'path' pur : utilise data-route-image avec path comme query string
+        // Le bundle a stocke l'URL de base dans data-route-image (= /bninefiles/image/{domain}/{id})
+        if ($widget.dataset.routeImage) {
+            return $widget.dataset.routeImage + '?path=' + encodeURIComponent(p);
+        }
+        // Fallback : prefix par / si pas de base dispo
+        return '/' + p;
+    }
+
+    // Normalise un item : accepte {path} ou {url} ou string
+    // Retourne un objet avec :
+    //   - path : chemin PUR (apres domain/id/), ex: 'foo/bar.jpg'
+    //   - url  : URL absolue generee via buildUrl (utilise la cle API publique)
+    //   - name : basename du fichier (ex: 'bar.jpg')
+    function normalizeItem(raw) {
+        if (typeof raw === 'string') {
+            return { path: stripDomainPrefix(raw), url: buildUrl(raw), name: basenameOf(raw) };
+        }
+        if (!raw || typeof raw !== 'object') return null;
+        var rawPath = raw.path || '';
+        var path = stripDomainPrefix(rawPath);
+        var url = raw.url || (path ? buildUrl(path) : '');
+        var name = raw.name || (path ? basenameOf(path) : (url ? basenameFromUrl(url) : 'image'));
+        return { path: path, url: url, name: name };
+    }
+
+    // Extrait le path pur apres 'domain/id/' : 'sample/1/foo/bar.jpg' → 'foo/bar.jpg'
+    function stripDomainPrefix(p) {
+        if (!p || typeof p !== 'string') return '';
+        var parts = p.split('/');
+        if (parts.length >= 3) {
+            return parts.slice(2).join('/');
+        }
+        return p;
+    }
+
+    function basenameOf(p) {
+        if (!p) return '';
+        var idx = Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\'));
+        return idx >= 0 ? p.substring(idx + 1) : p;
+    }
+
+    function basenameFromUrl(url) {
+        if (!url) return '';
+        var u = url.split('?')[0];
+        var idx = u.lastIndexOf('/');
+        return idx >= 0 ? u.substring(idx + 1) : u;
+    }
+
+    function renderPreview() {
+        var value = $input.value;
+        $wrap.innerHTML = '';
+        if (!value) {
+            showPlaceholder();
+            return;
+        }
+
+        // Normalise : en multiple, value est un JSON array de strings. En single, c'est un string unique.
+        var paths = [];
+        if (cfg.mode === 'multiple') {
+            try {
+                var parsed = JSON.parse(value);
+                if (Array.isArray(parsed)) {
+                    parsed.forEach(function (p) {
+                        if (typeof p === 'string' && p !== '') paths.push(p);
+                    });
+                }
+            } catch (e) {
+                // value invalide, on laisse paths vide
+            }
+        } else {
+            paths.push(value);
+        }
+
+        if (paths.length === 0) {
+            showPlaceholder();
+            return;
+        }
+
+        $wrap.classList.remove('bnine-file-empty');
+
+        paths.forEach(function (path) {
+            var card = document.createElement('div');
+            card.className = 'file-gallery-item';
+            // En mode multiple : masonry-like (CSS multi-column). En mode single : centré.
+            var cardStyle = cfg.mode === 'multiple'
+                ? 'position: relative; border-radius: 0.375rem; overflow: hidden; background: var(--bs-tertiary-bg, #f8f9fa); margin-bottom: 0.75rem;'
+                : 'position: relative; text-align: center; border: 1px solid var(--bs-border-color, #dee2e6); border-radius: 4px; padding: 4px; background: var(--bs-light);';
+            card.style.cssText = cardStyle;
+
+            var img = document.createElement('img');
+            img.src = buildUrl(path);
+            img.title = path;
+            // Comme dans la gallery : width 100% pour remplir la cellule, height auto pour conserver le ratio
+            img.style.cssText = cfg.mode === 'multiple'
+                ? 'width: 100%; height: auto; display: block;'
+                : 'border-radius: 4px; object-fit: contain; max-width: 100%; height: auto;';
+            if (cfg.mode === 'single' && cfg.maxHeight) {
+                img.style.maxHeight = cfg.maxHeight + 'px';
+            }
+            card.appendChild(img);
+
+            if (cfg.showName) {
+                var name = document.createElement('div');
+                name.className = 'small text-truncate text-muted mt-1 p-1';
+                name.style.cssText = 'font-size: 0.75rem;';
+                name.textContent = path.split('/').pop();
+                name.title = path;
+                card.appendChild(name);
+            }
+
+            $wrap.appendChild(card);
+        });
+    }
+
+    function showPlaceholder() {
+        var placeholderText = $wrap.dataset.placeholder ||
+            (cfg.mode === 'multiple' ? 'Aucune image sélectionnée' : 'Aucune image');
+        var icon = cfg.mode === 'multiple' ? 'fa-images' : 'fa-image';
+        $wrap.classList.add('bnine-file-empty');
+        $wrap.innerHTML =
+            '<div class="bnine-file-placeholder text-muted text-center w-100 d-flex flex-column align-items-center justify-content-center" ' +
+            'style="padding: 1rem; min-height: 80px;">' +
+            '<i class="fas ' + icon + ' fa-2x mb-1 opacity-50"></i>' +
+            '<small>' + placeholderText + '</small>' +
+            '</div>';
+    }
+
+    function onSelect(payload) {
+        // payload peut être : {url, path, name} (clic single) ou [{url,path,name}, ...] (validate multiple)
+        var rawItems = Array.isArray(payload) ? payload : [payload];
+        // Normalise : on ne garde que les paths (strings)
+        var newPaths = [];
+        rawItems.forEach(function (r) {
+            var n = normalizeItem(r);
+            if (n && n.path) newPaths.push(n.path);
+        });
+
+        if (cfg.mode === 'multiple') {
+            // Comportement additif : on AJOUTE aux chemins existants, sans doublons.
+            // Storage : JSON array de strings (ex: ["sample/1/a.jpg","sample/1/b.jpg"])
+            var existing = [];
+            try {
+                var raw = JSON.parse($input.value || '[]');
+                if (Array.isArray(raw)) {
+                    raw.forEach(function (p) {
+                        if (typeof p === 'string') existing.push(p);
+                    });
+                }
+            } catch (e) {
+                existing = [];
+            }
+            var existingSet = {};
+            existing.forEach(function (p) { existingSet[p] = true; });
+
+            newPaths.forEach(function (p) {
+                if (!existingSet[p]) {
+                    existing.push(p);
+                    existingSet[p] = true;
+                }
+            });
+
+            $input.value = JSON.stringify(existing);
+        } else {
+            // mode single : on stocke juste le premier chemin (string)
+            $input.value = newPaths.length > 0 ? newPaths[0] : '';
+        }
+        renderPreview();
+
+        // Dispatcher le CustomEvent bnine:select:done (remplace window.bnineFileSelect)
+        var detail = {
+            items: rawItems.map(function (r) { return normalizeItem(r); }).filter(function (n) { return n !== null; }),
+            mode: cfg.mode,
+            inputId: cfg.inputId,
+            origin: widgetId,
+        };
+        if (typeof bnineDispatch === 'function') {
+            bnineDispatch('bnine:select:done', detail, document);
+        } else {
+            var ev;
+            try { ev = new CustomEvent('bnine:select:done', { detail: detail, bubbles: true }); }
+            catch (e) { ev = document.createEvent('CustomEvent'); ev.initCustomEvent('bnine:select:done', true, false, detail); }
+            document.dispatchEvent(ev);
+        }
+
+        // Dispatcher bnine:selectfile:change
+        var changeDetail = {
+            value: $input.value,
+            mode: cfg.mode,
+            inputId: cfg.inputId,
+            origin: widgetId,
+        };
+        if (typeof bnineDispatch === 'function') {
+            bnineDispatch('bnine:selectfile:change', changeDetail, document);
+        } else {
+            var ev2;
+            try { ev2 = new CustomEvent('bnine:selectfile:change', { detail: changeDetail, bubbles: true }); }
+            catch (e) { ev2 = document.createEvent('CustomEvent'); ev2.initCustomEvent('bnine:selectfile:change', true, false, changeDetail); }
+            document.dispatchEvent(ev2);
+        }
+
+        if (typeof window.BnineModalClose === 'function') {
+            window.BnineModalClose();
+        }
+    }
+
+    // Enregistre la callback dans une registry globale, indexée par inputId.
+    // DEPRECIE : utiliser addEventListener('bnine:select:done', ...) a la place.
+    // Garde pour retrocompatibilite temporaire.
+    window._bnineSelectRegistry = window._bnineSelectRegistry || {};
+    window._bnineSelectRegistry[cfg.inputId] = onSelect;
+
+    // Bouton "Choisir"
+    var $btn = $widget.querySelector('.bnine-file-select-btn');
+    if ($btn) {
+        $btn.addEventListener('click', function () {
+            // On encode l'inputId dans l'URL pour que la gallery sache exactement
+            // quel widget a ouvert la modale, indépendamment de l'état global.
+            // Le 3e segment de l'URL (editable) contrôle les actions dispo dans la modale :
+            //   1 = write : upload + création de dossiers + suppression autorisés
+            //   0 = read  : navigation et sélection uniquement
+            // URL de la gallery selon le mode d'accès (write ou read)
+            var galleryBase = cfg.isWrite
+                ? ($widget.dataset.routeGalleryWrite || ('/bninefiles/gallery/' + cfg.domain + '/' + cfg.entityId + '/1'))
+                : ($widget.dataset.routeGalleryRead || ('/bninefiles/gallery/' + cfg.domain + '/' + cfg.entityId + '/0'));
+            var url = galleryBase
+                + '?select=' + encodeURIComponent(cfg.selectMode)
+                + '&inputId=' + encodeURIComponent(cfg.inputId);
+            window._bnineActiveInputId = cfg.inputId;
+            BnineModalOpen({
+                id: 'bnine-select-' + cfg.inputId,
+                title: cfg.mode === 'multiple' ? 'Sélectionner des images' : 'Sélectionner une image',
+                url: url,
+                height: '700px'
+            });
+        });
+    }
+
+    // Bouton "Vider"
+    var $clear = $widget.querySelector('.bnine-file-clear');
+    if ($clear) {
+        $clear.addEventListener('click', function () {
+            $input.value = cfg.mode === 'multiple' ? '[]' : '';
+            renderPreview();
+
+            // Dispatcher bnine:selectfile:change (valeur videe)
+            var clearDetail = {
+                value: $input.value,
+                mode: cfg.mode,
+                inputId: cfg.inputId,
+                origin: widgetId,
+                cleared: true,
+            };
+            if (typeof bnineDispatch === 'function') {
+                bnineDispatch('bnine:selectfile:change', clearDetail, document);
+            } else {
+                var ev;
+                try { ev = new CustomEvent('bnine:selectfile:change', { detail: clearDetail, bubbles: true }); }
+                catch (e) { ev = document.createEvent('CustomEvent'); ev.initCustomEvent('bnine:selectfile:change', true, false, clearDetail); }
+                document.dispatchEvent(ev);
+            }
+        });
+    }
+
+    renderPreview();
+})();
+</script>

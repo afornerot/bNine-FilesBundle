@@ -1,0 +1,14 @@
+security:
+    providers:
+        in_memory:
+            memory: ~
+    firewalls:
+        main:
+            pattern: ^/
+            lazy: true
+            stateless: false
+            security: false
+            http_basic: false
+            entry_point: ~
+    access_control:
+        - { path: ^/, roles: PUBLIC_ACCESS }

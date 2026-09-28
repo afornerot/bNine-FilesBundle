@@ -2,10 +2,14 @@
 
 namespace Bnine\FilesBundle\Controller;
 
+use Bnine\FilesBundle\Cache\CachePolicyInterface;
+use Bnine\FilesBundle\Cache\DefaultCachePolicy;
 use Bnine\FilesBundle\Security\AbstractFileVoter;
 use Bnine\FilesBundle\Service\FileService;
 use Imagine\Gd\Imagine;
 use League\Flysystem\FilesystemOperator;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -15,17 +19,31 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpFoundation\ResponseHeaderBag;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\Mime\MimeTypes;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\Annotation\Route;
 
 class FileController extends AbstractController
 {
     private const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'tif'];
 
-    private FileService $fileService;
+    /** Valeur par defaut du max-age si aucun CachePolicy custom ne la precise. */
+    private const DEFAULT_CACHE_MAX_AGE = 86400 * 30; // 30 jours
 
-    public function __construct(FileService $fileService)
-    {
+    private FileService $fileService;
+    private LoggerInterface $logger;
+    private UrlGeneratorInterface $router;
+    private CachePolicyInterface $cachePolicy;
+
+    public function __construct(
+        FileService $fileService,
+        LoggerInterface $logger = null,
+        UrlGeneratorInterface $router = null,
+        CachePolicyInterface $cachePolicy = null,
+    ) {
         $this->fileService = $fileService;
+        $this->logger = $logger ?? new NullLogger();
+        $this->router = $router;
+        $this->cachePolicy = $cachePolicy ?? new DefaultCachePolicy();
     }
 
     #[Route('/list/{domain}/{id}/{editable}', name: 'bninefiles_files', methods: ['GET'])]
@@ -39,7 +57,7 @@ class FileController extends AbstractController
         try {
             $files = $this->fileService->list($domain, (string) $id, $relativePath);
 
-            return $this->render('@BnineFilesBundle/file/browse.html.twig', [
+            return $this->render('@BnineFiles/file/browse.html.twig', [
                 'domain' => $domain,
                 'id' => $id,
                 'files' => $files,
@@ -47,14 +65,22 @@ class FileController extends AbstractController
                 'editable' => $editable,
                 'compact' => $compact,
             ]);
-        } catch (\Exception $e) {
-            $this->addFlash('danger', $e->getMessage());
-            dd($e->getMessage());
-
-            return $this->redirectToRoute('bninefiles_files', [
+        } catch (\Throwable $e) {
+            $this->logger->error('bNine-FilesBundle browse error', [
                 'domain' => $domain,
                 'id' => $id,
+                'path' => $relativePath,
+                'exception' => $e,
+            ]);
+            $this->addFlash('danger', 'Erreur lors de la lecture du dossier : '.$e->getMessage());
+
+            return $this->render('@BnineFiles/file/browse.html.twig', [
+                'domain' => $domain,
+                'id' => $id,
+                'files' => [],
+                'path' => '',
                 'editable' => $editable,
+                'compact' => $compact,
             ]);
         }
     }
@@ -67,8 +93,18 @@ class FileController extends AbstractController
         $relativePath = $request->query->get('path', '');
         $imageOnly = $request->query->has('imageOnly');
         $crop = $request->query->has('crop');
+        // Options crop (transmises au template crop) :
+        //   - min_size (défaut 300, bornes 50-2000) : taille minimale finale (largeur ET hauteur)
+        //   - ratio (défaut 1/1, ou "free") : ratio largeur/hauteur
+        //   - configurable (défaut false) : si true, l'user peut modifier min_size et ratio
+        $minSize = max(50, min(2000, (int) ($request->query->get('min_size') ?? 300)));
+        $ratio = trim((string) ($request->query->get('ratio') ?? '1/1'));
+        if ('' === $ratio) {
+            $ratio = '1/1';
+        }
+        $configurable = filter_var($request->query->get('configurable', '0'), \FILTER_VALIDATE_BOOLEAN);
 
-        return $this->render('@BnineFilesBundle\file\upload.html.twig', [
+        return $this->render('@BnineFiles\file\upload.html.twig', [
             'useheader' => false,
             'usemenu' => false,
             'usesidebar'=> false,
@@ -78,6 +114,9 @@ class FileController extends AbstractController
             'path'      => $relativePath,
             'imageOnly' => $imageOnly,
             'crop'      => $crop,
+            'minSize'   => $minSize,
+            'ratio'     => $ratio,
+            'configurable'    => $configurable,
         ]);
     }
 
@@ -92,43 +131,83 @@ class FileController extends AbstractController
 
         $this->denyAccessUnlessGranted(AbstractFileVoter::EDIT, [$domain, $id]);
 
-        if (!$file || !$domain || $id === null) {
-            return new JsonResponse('Invalid parameters', 400);
+        if (!$file || !$domain || null === $id || '' === $id) {
+            return new JsonResponse(['error' => 'Paramètres invalides.'], 400);
         }
 
-        $originalName = $file->getClientOriginalName();
-
-        $publicDomains = ['avatar', 'logo', 'icon'];
-        if (in_array($domain, $publicDomains)) {
-            $ext = pathinfo($originalName, PATHINFO_EXTENSION) ? '.'.pathinfo($originalName, PATHINFO_EXTENSION) : '';
-            $originalName = bin2hex(random_bytes(16)).$ext;
-        }
-
-        if ($this->fileService->isS3()) {
-            $dirPath = $this->fileService->getRelativePath($domain, $id, $relativePath);
-            $this->fileService->getStorage()->createDirectory($dirPath);
-
-            $storagePath = rtrim($dirPath, '/').'/'.$originalName;
-
-            $this->fileService->deleteThumbs($domain, $id, $relativePath.'/'.$originalName);
-
-            $this->fileService->getStorage()->writeStream(
-                $storagePath,
-                fopen($file->getPathname(), 'rb')
-            );
-        } else {
-            $baseDir = $this->getParameter('kernel.project_dir').'/uploads/'.$domain.'/'.$id.'/'.ltrim($relativePath, '/');
-
-            if (!is_dir($baseDir)) {
-                mkdir($baseDir, 0775, true);
+        try {
+            $originalName = $file->getClientOriginalName();
+            if ('' === $originalName) {
+                return new JsonResponse(['error' => 'Nom de fichier invalide.'], 400);
             }
 
-            $this->fileService->deleteThumbs($domain, $id, $relativePath.'/'.$originalName);
+            $publicDomains = ['avatar', 'logo', 'icon'];
+            $isPublicDomain = in_array($domain, $publicDomains, true);
+            if ($isPublicDomain) {
+                $ext = pathinfo($originalName, PATHINFO_EXTENSION);
+                $originalName = bin2hex(random_bytes(16)).($ext ? '.'.$ext : '');
+            }
 
-            $file->move($baseDir, $originalName);
+            // Calcule le path du thumb avant de move le fichier (le fichier temp disparaît après move).
+            $thumbRelativePath = null;
+            $thumbDir = $relativePath
+                ? trim($relativePath, '/').'/_thumbs'
+                : '_thumbs';
+            $thumbDirForSave = $thumbRelativePath = trim($thumbDir.'/'.$originalName, '/');
+
+            if ($this->fileService->isS3()) {
+                $this->fileService->ensureDirectory($domain, $id, $relativePath);
+                $dirPath = $this->fileService->getRelativePath($domain, (string) $id, $relativePath);
+                $storagePath = rtrim($dirPath, '/').'/'.$originalName;
+
+                $this->fileService->deleteThumbs($domain, $id, $relativePath.'/'.$originalName);
+
+                $this->fileService->getStorage()->writeStream(
+                    $storagePath,
+                    fopen($file->getPathname(), 'rb')
+                );
+
+                if ($isPublicDomain) {
+                    // Copie le thumb (S3)
+                    $thumbStoragePath = $this->fileService->getRelativePath($domain, (string) $id, $thumbRelativePath);
+                    $this->fileService->getStorage()->createDirectory(
+                        $this->fileService->getRelativePath($domain, (string) $id, $thumbDir)
+                    );
+                    $this->fileService->getStorage()->writeStream(
+                        $thumbStoragePath,
+                        fopen($file->getPathname(), 'rb')
+                    );
+                }
+            } else {
+                $this->fileService->ensureDirectory($domain, $id, $relativePath);
+
+                $baseDir = $this->getParameter('kernel.project_dir').'/uploads/'.$domain.'/'.$id.'/'.ltrim($relativePath, '/');
+
+                $this->fileService->deleteThumbs($domain, $id, $relativePath.'/'.$originalName);
+
+                $file->move($baseDir, $originalName);
+
+                if ($isPublicDomain) {
+                    // Copie le thumb (local) : le fichier source vient d'être move, on l'utilise depuis sa destination.
+                    $thumbBaseDir = $baseDir.'/_thumbs';
+                    if (!is_dir($thumbBaseDir)) {
+                        @mkdir($thumbBaseDir, 0775, true);
+                    }
+                    copy($baseDir.'/'.$originalName, $thumbBaseDir.'/'.$originalName);
+                }
+            }
+
+            // Pour les domaines publics, on renvoie le path complet du thumb (préfixé _thumbs/)
+            // pour que le widget parent puisse construire l'URL via la fonction Twig bninefile().
+            // Format: avatar/0/_thumbs/8be98d...jpg → /bninefiles/image/avatar/0?path=_thumbs/8be98d...jpg
+            $returnedPath = $isPublicDomain ? $domain.'/'.$id.'/'.$thumbRelativePath : $originalName;
+
+            return new JsonResponse(['success' => true, 'filename' => $returnedPath]);
+        } catch (\Throwable $e) {
+            $this->logger->error('bNine-FilesBundle upload error', ['exception' => $e]);
+
+            return new JsonResponse(['error' => $e->getMessage()], 500);
         }
-
-        return new JsonResponse(['success' => true, 'filename' => $originalName]);
     }
 
     #[Route('/delete/{domain}/{id}', name: 'bninefiles_files_delete', methods: ['POST'])]
@@ -160,15 +239,15 @@ class FileController extends AbstractController
         $path = $request->request->get('path');
         $name = $request->request->get('name');
 
-        if (!$name) {
-            return $this->json(['error' => 'Chemin ou nom manquant.'], 400);
+        if (!$name || !is_string($name)) {
+            return $this->json(['error' => 'Nom de dossier manquant.'], 400);
         }
 
         try {
-            $this->fileService->makeDirectory($domain, (string) $id, $path, $name);
+            $this->fileService->makeDirectory($domain, (string) $id, (string) $path, $name);
 
             return $this->json(['success' => true]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return $this->json(['error' => $e->getMessage()], 400);
         }
     }
@@ -250,7 +329,7 @@ class FileController extends AbstractController
                 return in_array($ext, self::IMAGE_EXTENSIONS);
             });
 
-            return $this->render('@BnineFilesBundle/file/gallery.html.twig', [
+            return $this->render('@BnineFiles/file/gallery.html.twig', [
                 'domain' => $domain,
                 'id' => $id,
                 'files' => array_values($files),
@@ -260,13 +339,24 @@ class FileController extends AbstractController
                 'compact' => $compact,
                 'select' => $select,
             ]);
-        } catch (\Exception $e) {
-            $this->addFlash('danger', $e->getMessage());
-
-            return $this->redirectToRoute('bninefiles_files_gallery', [
+        } catch (\Throwable $e) {
+            $this->logger->error('bNine-FilesBundle gallery error', [
                 'domain' => $domain,
                 'id' => $id,
+                'path' => $relativePath,
+                'exception' => $e,
+            ]);
+            $this->addFlash('danger', 'Erreur lors de la lecture de la galerie : '.$e->getMessage());
+
+            return $this->render('@BnineFiles/file/gallery.html.twig', [
+                'domain' => $domain,
+                'id' => $id,
+                'files' => [],
+                'allFiles' => [],
+                'path' => '',
                 'editable' => $editable,
+                'compact' => $compact,
+                'select' => $select,
             ]);
         }
     }
@@ -299,8 +389,7 @@ class FileController extends AbstractController
 
             $response->headers->set('Content-Type', $mimeType ?: 'application/octet-stream');
             $response->headers->set('Content-Disposition', ResponseHeaderBag::DISPOSITION_INLINE);
-            $response->setMaxAge(86400);
-            $response->setPublic();
+            $this->applyCachePolicy($response, $domain, (string) $id, $filePath);
 
             return $response;
         }
@@ -324,8 +413,7 @@ class FileController extends AbstractController
             $response->headers->set('Content-Type', $mimeType);
         }
 
-        $response->setMaxAge(86400 * 30);
-        $response->setPublic();
+        $this->applyCachePolicy($response, $domain, (string) $id, $filePath);
 
         return $response;
     }
@@ -416,8 +504,7 @@ class FileController extends AbstractController
 
             $response->headers->set('Content-Type', $mimeType ?: 'application/octet-stream');
             $response->headers->set('Content-Disposition', ResponseHeaderBag::DISPOSITION_INLINE);
-            $response->setMaxAge(86400 * 30);
-            $response->setPublic();
+            $this->applyCachePolicy($response, $domain, (string) $id, $filePath);
 
             return $response;
         }
@@ -475,8 +562,7 @@ class FileController extends AbstractController
             $response->headers->set('Content-Type', $mimeType);
         }
 
-        $response->setMaxAge(86400 * 30);
-        $response->setPublic();
+        $this->applyCachePolicy($response, $domain, (string) $id, $filePath);
 
         return $response;
     }
@@ -492,13 +578,30 @@ class FileController extends AbstractController
             throw $this->createNotFoundException('Fichier non spécifié.');
         }
 
-        $image = '/bninefiles/image/'.$domain.'/'.$id.'?path='.$filePath;
+        // Options crop :
+        //   - min_size (défaut 300, bornes 50-2000) : taille minimale finale (largeur ET hauteur)
+        //   - ratio (défaut 1/1, ou "free") : ratio largeur/hauteur
+        //   - configurable (défaut false) : si true, l'user peut modifier min_size et ratio
+        $minSize = max(50, min(2000, (int) ($request->query->get('min_size') ?? 300)));
+        $ratio = trim((string) ($request->query->get('ratio') ?? '1/1'));
+        if ('' === $ratio) {
+            $ratio = '1/1';
+        }
+        $configurable = filter_var($request->query->get('configurable', '0'), \FILTER_VALIDATE_BOOLEAN);
 
-        return $this->render('@BnineFilesBundle/file/crop.html.twig', [
+        $image = $this->router->generate('bninefiles_files_image', [
+            'domain' => $domain,
+            'id' => $id,
+        ]) . '?path=' . $filePath;
+
+        return $this->render('@BnineFiles/file/crop.html.twig', [
             'domain' => $domain,
             'id' => $id,
             'filePath' => $filePath,
             'image' => $image,
+            'minSize' => $minSize,
+            'ratio' => $ratio,
+            'configurable' => $configurable,
         ]);
     }
 
@@ -512,17 +615,48 @@ class FileController extends AbstractController
         $y1 = (int) $request->request->get('y1');
         $w = (int) $request->request->get('w');
         $h = (int) $request->request->get('h');
-        $size = (int) ($request->request->get('size') ?? 150);
+
+        // min_size : dimension minimale finale (largeur ET hauteur >= min_size).
+        // Si le crop donne une image plus petite, on l'agrandit proportionnellement.
+        // Défaut : 300. Bornes : [50, 2000].
+        $minSize = (int) ($request->request->get('min_size') ?? 300);
+        if ($minSize < 50 || $minSize > 2000) {
+            return new JsonResponse(['error' => 'min_size doit être entre 50 et 2000.'], 400);
+        }
+
+        // ratio : ratio largeur/hauteur optionnel (format libre : "16/9", "4:3", "free", etc.).
+        // Si fourni, on l'utilise comme aspectRatio de Cropper (côté UI).
+        // Côté backend, on ne contraint pas : le crop sélectionné par l'user fait foi.
+        // Valeurs spéciales acceptées : "free" ou ratio libre "w/h".
+        $ratio = trim((string) ($request->request->get('ratio') ?? '1/1'));
+        if ($ratio !== '' && $ratio !== 'free' && !preg_match('/^(\d+(?:\.\d+)?)\s*[:\/]\s*(\d+(?:\.\d+)?)$/', $ratio)) {
+            return new JsonResponse(['error' => 'Ratio invalide (attendu: 16/9, 4/3, 1/1, free, etc.).'], 400);
+        }
 
         if (!$filePath || $w <= 0 || $h <= 0) {
             return new JsonResponse(['error' => 'Paramètres invalides.'], 400);
         }
 
+        // Le thumb est stocké sous _thumbs/ + chemin-complet-non-thumb.
+        // Exemple : avatar/0/photo.jpg → _thumbs/avatar/0/photo.jpg
+        //          photos/2024/vacances.jpg → _thumbs/photos/2024/vacances.jpg
         $filename = pathinfo($filePath, PATHINFO_FILENAME);
         $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
-        $thumbSubPath = '_thumbs/'.$size.'x'.$size;
-        $thumbFilename = $filename.'.'.$ext;
-        $thumbRelativePath = $thumbSubPath.'/'.$thumbFilename;
+        $fileDir = trim(dirname($filePath), '/.');
+        $thumbRelativePath = '' === $fileDir
+            ? '_thumbs/'.$filename.'.'.$ext
+            : '_thumbs/'.$fileDir.'/'.$filename.'.'.$ext;
+
+        // Helper local : calcule le redimensionnement si l'image croppée est trop petite
+        $computeFinalSize = function ($cw, $ch) use ($minSize) {
+            // Si les deux dimensions sont déjà >= minSize, on garde tel quel
+            if ($cw >= $minSize && $ch >= $minSize) {
+                return [$cw, $ch];
+            }
+            // Sinon, on agrandit pour que la plus petite dimension atteigne minSize
+            $scale = $minSize / min($cw, $ch);
+            return [(int) ceil($cw * $scale), (int) ceil($ch * $scale)];
+        };
 
         if ($this->fileService->isS3()) {
             $storagePath = $this->fileService->getRelativePath($domain, (string) $id, $filePath);
@@ -545,13 +679,17 @@ class FileController extends AbstractController
             $cropBox = new \Imagine\Image\Box($w, $h);
             $cropStart = new \Imagine\Image\Point($x1, $y1);
 
-            $image->crop($cropStart, $cropBox)
-                ->resize(new \Imagine\Image\Box($size, $size))
+            // Crop avec taille exacte sélectionnée
+            $image->crop($cropStart, $cropBox)->strip();
+
+            // Agrandir si < min_size (en conservant le ratio du crop)
+            [$finalW, $finalH] = $computeFinalSize($w, $h);
+            $image->resize(new \Imagine\Image\Box($finalW, $finalH))
                 ->strip()
                 ->save($tmpThumb, ['quality' => 85]);
 
             $this->fileService->getStorage()->createDirectory(
-                $this->fileService->getRelativePath($domain, (string) $id, $thumbSubPath)
+                $this->fileService->getRelativePath($domain, (string) $id, dirname($thumbRelativePath))
             );
             $this->fileService->getStorage()->writeStream($thumbStoragePath, fopen($tmpThumb, 'rb'));
 
@@ -565,19 +703,23 @@ class FileController extends AbstractController
                 throw $this->createAccessDeniedException('Accès refusé.');
             }
 
-            $thumbDir = $basePath.'/'.$thumbSubPath;
-            if (!is_dir($thumbDir)) {
-                mkdir($thumbDir, 0775, true);
+            $thumbDir = $basePath.'/'.dirname($thumbRelativePath);
+            if (!is_dir($thumbDir) && !@mkdir($thumbDir, 0775, true) && !is_dir($thumbDir)) {
+                throw new \RuntimeException(sprintf('Impossible de créer le répertoire de thumb %s', $thumbDir));
             }
-            $thumbPath = $thumbDir.'/'.$thumbFilename;
+            $thumbPath = $basePath.'/'.$thumbRelativePath;
 
             $imagine = new Imagine();
             $image = $imagine->open($absolutePath);
             $cropBox = new \Imagine\Image\Box($w, $h);
             $cropStart = new \Imagine\Image\Point($x1, $y1);
 
-            $image->crop($cropStart, $cropBox)
-                ->resize(new \Imagine\Image\Box($size, $size))
+            // Crop avec taille exacte sélectionnée
+            $image->crop($cropStart, $cropBox)->strip();
+
+            // Agrandir si < min_size (en conservant le ratio du crop)
+            [$finalW, $finalH] = $computeFinalSize($w, $h);
+            $image->resize(new \Imagine\Image\Box($finalW, $finalH))
                 ->strip()
                 ->save($thumbPath, ['quality' => 85]);
         }
@@ -585,7 +727,42 @@ class FileController extends AbstractController
         return new JsonResponse([
             'success' => true,
             'path' => $thumbRelativePath,
-            'url' => '/bninefiles/image/'.$domain.'/'.$id.'?path='.$thumbRelativePath,
+            'url' => $this->router->generate('bninefiles_files_image', [
+                'domain' => $domain,
+                'id' => $id,
+            ]) . '?path=' . rawurlencode($thumbRelativePath),
         ]);
+    }
+
+    /**
+     * Applique la strategie de cache HTTP a une reponse.
+     *
+     * Interroge CachePolicyInterface pour :
+     *   - la duree du cache (max-age)
+     *   - le caractere public/private
+     *
+     * Si le CachePolicy retourne null pour une option, le bundle utilise
+     * sa valeur par defaut (30 jours, public).
+     *
+     * Si max-age = 0, aucun header Cache-Control n'est ajoute (le
+     * navigateur appliquera son propre cache heuristique).
+     */
+    private function applyCachePolicy(Response $response, string $domain, string $id, string $filePath): void
+    {
+        $maxAge = $this->cachePolicy->getCacheMaxAge($domain, $id, $filePath);
+        $maxAge = $maxAge ?? self::DEFAULT_CACHE_MAX_AGE;
+
+        if ($maxAge > 0) {
+            $response->setMaxAge($maxAge);
+        }
+
+        $isPublic = $this->cachePolicy->isPublicCacheable($domain, $id, $filePath);
+        $isPublic = $isPublic ?? true;
+
+        if ($isPublic) {
+            $response->setPublic();
+        } else {
+            $response->setPrivate();
+        }
     }
 }

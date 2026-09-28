@@ -1,0 +1,86 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Résultat Form Icon{% endblock %}
+
+{% block body %}
+<div class="container">
+    <h1><i class="fas fa-check-circle me-2 text-success"></i>Formulaire valide</h1>
+    <p class="text-muted">Voici les données reçues du DTO après soumission :</p>
+
+    <div class="card">
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-3">Titre</dt>
+                <dd class="col-sm-9"><code>{{ title }}</code></dd>
+
+                <dt class="col-sm-3">Avatar carré (1/1, 300, configurable=false)</dt>
+                <dd class="col-sm-9">
+                    <code>{{ dto.avatar }}</code>
+                    {% if dto.avatar %}
+                        <div class="mt-2">
+                            <img src="{{ bninefile(dto.avatar) }}" alt="" style="max-height: 100px; border-radius: 4px;">
+                        </div>
+                    {% endif %}
+                </dd>
+
+                <dt class="col-sm-3">Avatar bannière (16/9, 400, configurable=true)</dt>
+                <dd class="col-sm-9">
+                    <code>{{ dto.banner }}</code>
+                    {% if dto.banner %}
+                        <div class="mt-2">
+                            <img src="{{ bninefile(dto.banner) }}" alt="" style="max-height: 250px; border-radius: 4px;">
+                        </div>
+                    {% endif %}
+                </dd>
+
+                <dt class="col-sm-3">Avatar portrait (3/4, 250, configurable=true)</dt>
+                <dd class="col-sm-9">
+                    <code>{{ dto.portrait }}</code>
+                    {% if dto.portrait %}
+                        <div class="mt-2">
+                            <img src="{{ bninefile(dto.portrait) }}" alt="" style="max-height: 200px; border-radius: 4px;">
+                        </div>
+                    {% endif %}
+                </dd>
+
+                <dt class="col-sm-3">Avatar libre (free, 200, configurable=true)</dt>
+                <dd class="col-sm-9">
+                    <code>{{ dto.free }}</code>
+                    {% if dto.free %}
+                        <div class="mt-2">
+                            <img src="{{ bninefile(dto.free) }}" alt="" style="max-height: 300px; border-radius: 4px;">
+                        </div>
+                    {% endif %}
+                </dd>
+
+                <dt class="col-sm-3">Avatar SANS crop (simple upload)</dt>
+                <dd class="col-sm-9">
+                    <code>{{ dto.simple }}</code>
+                    {% if dto.simple %}
+                        <div class="mt-2">
+                            <img src="{{ bninefile(dto.simple) }}" alt="" style="max-height: 150px; border-radius: 4px;">
+                        </div>
+                    {% endif %}
+                </dd>
+            </dl>
+
+            <h6 class="mt-4 text-muted">Code d'usage côté contrôleur</h6>
+            <pre class="small bg-light p-3 rounded mb-3"><code>if ($form-&gt;isSubmitted() &amp;&amp; $form-&gt;isValid()) {
+    // $dto-&gt;avatar, $dto-&gt;banner, $dto-&gt;portrait, $dto-&gt;free, $dto-&gt;simple : string|null
+    // Domaines publics (avatar) : path retourné est "avatar/0/_thumbs/{file}.{ext}"
+    // Domaines privés           : path retourné est "{file}.{ext}"
+
+    // Persistance Doctrine (exemple) :
+    // $entity-&gt;setAvatar($dto-&gt;avatar);
+
+    // Affichage Twig :
+    //   &lt;img src=&quot;{{ '{{ bninefile(article.avatar) }}' }}&quot;&gt;
+}</code></pre>
+
+            <a href="{{ path('demo_form_icon') }}" class="btn btn-secondary mt-3">
+                <i class="fas fa-arrow-left me-1"></i>Retour au formulaire
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

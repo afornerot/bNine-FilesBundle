@@ -1,14 +1,52 @@
-# config/services.yaml du bundle
 services:
     _defaults:
         autowire: true
         autoconfigure: true
-        public: true
+        public: false
 
     Bnine\FilesBundle\:
         resource: "../src/*"
         exclude:
-        - "../src/DependencyInjection/"
-        - "../src/Entity/"
-        - "../src/Kernel.php"
+            - "../src/DependencyInjection/"
+            - "../src/Entity/"
+            - "../src/Kernel.php"
 
+    Bnine\FilesBundle\Twig\BnineFileExtension:
+        tags: ['twig.extension']
+
+    # IconUploadType a besoin du router pour générer l'URL d'upload via le nom de route
+    Bnine\FilesBundle\Form\Type\IconUploadType:
+        calls:
+            - setRouter:
+                - '@router'
+
+    # SelectFileType a besoin du router et de Twig pour rendre le widget bundle
+    Bnine\FilesBundle\Form\Type\SelectFileType:
+        calls:
+            - setRouter:
+                - '@router'
+            - setTwig:
+                - '@twig'
+
+    # DefaultCachePolicy : implementation par defaut du CachePolicyInterface.
+    # Le bundle retourne null pour toutes les methodes, ce qui signifie
+    # "utiliser les valeurs par defaut du bundle" :
+    #   - max-age = 30 jours (2592000 secondes)
+    #   - Cache-Control: public
+    #
+    # L'application hote peut surcharger en declarant un service qui implemente
+    # Bnine\FilesBundle\Cache\CachePolicyInterface, puis en creant un alias :
+    #   Bnine\FilesBundle\Cache\CachePolicyInterface: '@App\Cache\MyCachePolicy'
+    #
+    # On declare DefaultCachePolicy en public pour que le FileController puisse
+    # l'injecter via le type-hint CachePolicyInterface.
+    Bnine\FilesBundle\Cache\DefaultCachePolicy:
+        public: true
+
+    Bnine\FilesBundle\Cache\CachePolicyInterface: '@Bnine\FilesBundle\Cache\DefaultCachePolicy'
+
+    # Le bundle fournit un theme Twig pour rendre SelectFileType correctement.
+    # Le sample (ou toute app hôte) doit l'activer dans twig.yaml via :
+    #   form_themes:
+    #     - '@BnineFilesBundle/Form/_theme.html.twig'
+    # Cette approche permet à l'app hôte de surcharger le theme si besoin.

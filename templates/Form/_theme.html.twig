@@ -1,0 +1,38 @@
+{#
+    Theme Twig pour Bnine\FilesBundle\Form\Type\SelectFileType.
+
+    Ce theme surcharge les blocs `hidden_widget` et `hidden_row` pour intercepter
+    uniquement les champs SelectFileType.
+
+    block_prefixes contient tous les prefixes de la chaîne d'héritage, ex:
+    ['select_file', 'hidden', 'form']. On vérifie si 'select_file' est dans
+    le tableau pour détecter nos champs.
+
+    Pour SelectFileType : le HTML du widget bundle est pré-rendu par SelectFileType::buildView()
+    et stocké dans form.vars.widget_html. On l'affiche directement via |raw.
+    Pour IconUploadType et autres HiddenType : on génère directement l'input caché
+    (le rendu de bundle IconUploadType est géré par bninefiles.js via la classe .icon-input).
+#}
+
+{% block hidden_widget %}
+    {% if 'select_file' in form.vars.block_prefixes|default([]) %}
+        {{ form.vars.widget_html|default('')|raw }}
+    {% else %}
+        <input type="{{ type|default('hidden') }}" {{ block('widget_attributes') }} {% if value is not empty %}value="{{ value }}" {% endif %}/>
+    {% endif %}
+{% endblock %}
+
+{% block hidden_row %}
+    {% if 'select_file' in form.vars.block_prefixes|default([]) %}
+        {% if label is not empty or label_format is not empty %}
+            {{ form_label(form) }}
+        {% endif %}
+        {{ form.vars.widget_html|default('')|raw }}
+        {{ form_errors(form) }}
+    {% else %}
+        {{- block('form_label') -}}
+        {{- block('hidden_widget') -}}
+        {{- form_errors(form) -}}
+    {% endif %}
+{% endblock %}
+

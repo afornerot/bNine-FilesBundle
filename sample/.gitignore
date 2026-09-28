@@ -1,0 +1,7 @@
+/var/
+/vendor/
+uploads/
+.idea/
+.vscode/
+*.log
+/public/bundles/
