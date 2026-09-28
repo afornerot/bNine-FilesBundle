@@ -30,9 +30,7 @@
         {{ form.vars.widget_html|default('')|raw }}
         {{ form_errors(form) }}
     {% else %}
-        {{- block('form_label') -}}
         {{- block('hidden_widget') -}}
-        {{- form_errors(form) -}}
     {% endif %}
 {% endblock %}
 
