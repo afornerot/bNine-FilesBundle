@@ -59,12 +59,10 @@ class BnineFileExtension extends AbstractExtension
             return '/bninefiles/image/'.$domain.'/'.$id.'?path='.rawurlencode($path);
         }
 
-        throw new \RuntimeException(sprintf(
-            'La valeur passée à bninefile() doit être au format "domain/id/path" (reçu : %s). '
-            .'Assurez-vous que le widget BnineFileExtension est utilisé après passage par '
-            .'un SelectFileType, IconUploadType ou via le controller d\'upload/crop du bundle.',
-            $value
-        ));
+        // Format non reconnu (ex: ancien chemin '_thumbs/xxx.jpg', chemin incomplet, etc.) :
+        // on retourne la valeur telle quelle (préfixée d'un '/' si nécessaire) au lieu
+        // de lever une exception, pour ne pas casser le rendu des templates.
+        return str_starts_with($value, '/') ? $value : '/'.$value;
     }
 }
 
