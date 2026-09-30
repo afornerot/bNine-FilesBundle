@@ -36,9 +36,9 @@ class FileController extends AbstractController
 
     public function __construct(
         FileService $fileService,
-        LoggerInterface $logger = null,
-        UrlGeneratorInterface $router = null,
-        CachePolicyInterface $cachePolicy = null,
+        ?LoggerInterface $logger = null,
+        ?UrlGeneratorInterface $router = null,
+        ?CachePolicyInterface $cachePolicy = null,
     ) {
         $this->fileService = $fileService;
         $this->logger = $logger ?? new NullLogger();
