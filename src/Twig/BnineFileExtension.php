@@ -8,8 +8,9 @@ use Twig\TwigFunction;
 /**
  * Extension Twig qui reconstruit l'URL publique d'un fichier stocké.
  *
- * Le bundle stocke les chemins sous forme de string ("domain/id/path").
- * Cette fonction reconstruit l'URL publique correspondante.
+ * Le bundle stocke les chemins sous forme de string "domain/id/path"
+ * (par ex. "sample/1/photo.jpg"). Cette fonction reconstruit l'URL
+ * publique correspondante : /bninefiles/image/{domain}/{id}?path={path}.
  */
 class BnineFileExtension extends AbstractExtension
 {
@@ -38,10 +39,6 @@ class BnineFileExtension extends AbstractExtension
             return '/'.$value;
         }
 
-        if (str_starts_with($value, '/')) {
-            return $value;
-        }
-
         if (str_starts_with($value, 'uploads/')) {
             return '/'.$value;
         }
@@ -50,14 +47,24 @@ class BnineFileExtension extends AbstractExtension
             return '/'.str_replace('**public**/', '', $value);
         }
 
+        if (str_starts_with($value, '/')) {
+            return $value;
+        }
+
+        // Format normalisé "domain/id/path" : on extrait domain, id et path.
         $parts = explode('/', $value, 3);
-        if (count($parts) === 3) {
+        if (count($parts) === 3 && '' !== $parts[0] && '' !== $parts[1]) {
             [$domain, $id, $path] = $parts;
 
             return '/bninefiles/image/'.$domain.'/'.$id.'?path='.rawurlencode($path);
         }
 
-        return '/'.$value;
+        throw new \RuntimeException(sprintf(
+            'La valeur passée à bninefile() doit être au format "domain/id/path" (reçu : %s). '
+            .'Assurez-vous que le widget BnineFileExtension est utilisé après passage par '
+            .'un SelectFileType, IconUploadType ou via le controller d\'upload/crop du bundle.',
+            $value
+        ));
     }
 }
 

@@ -197,10 +197,17 @@ class FileController extends AbstractController
                 }
             }
 
-            // Pour les domaines publics, on renvoie le path complet du thumb (préfixé _thumbs/)
-            // pour que le widget parent puisse construire l'URL via la fonction Twig bninefile().
-            // Format: avatar/0/_thumbs/8be98d...jpg → /bninefiles/image/avatar/0?path=_thumbs/8be98d...jpg
-            $returnedPath = $isPublicDomain ? $domain.'/'.$id.'/'.$thumbRelativePath : $originalName;
+            // On renvoie TOUJOURS un chemin préfixé par 'domain/id/...'
+            // afin que le widget parent (et la fonction Twig bninefile()) puisse
+            // reconstruire l'URL publique via /bninefiles/image/{domain}/{id}?path=...
+            // - Domaine public : on renvoie le thumb (préfixé _thumbs/) → 'avatar/0/_thumbs/xxx.jpg'
+            // - Domaine non-public : on renvoie le fichier uploadé → 'sample/1/foo.jpg'
+            if ($isPublicDomain) {
+                $returnedPath = $domain.'/'.$id.'/'.$thumbRelativePath;
+            } else {
+                $base = '' === $relativePath ? '' : trim($relativePath, '/').'/';
+                $returnedPath = $domain.'/'.$id.'/'.$base.$originalName;
+            }
 
             return new JsonResponse(['success' => true, 'filename' => $returnedPath]);
         } catch (\Throwable $e) {
@@ -724,9 +731,15 @@ class FileController extends AbstractController
                 ->save($thumbPath, ['quality' => 85]);
         }
 
+        // Le path renvoyé est TOUJOURS préfixé par 'domain/id/' afin que le
+        // widget parent (et la fonction Twig bninefile()) puisse reconstruire
+        // l'URL publique via /bninefiles/image/{domain}/{id}?path=...
+        // Exemple : 'avatar/0/_thumbs/foo.jpg'
+        $thumbReturnedPath = $domain.'/'.$id.'/'.$thumbRelativePath;
+
         return new JsonResponse([
             'success' => true,
-            'path' => $thumbRelativePath,
+            'path' => $thumbReturnedPath,
             'url' => $this->router->generate('bninefiles_files_image', [
                 'domain' => $domain,
                 'id' => $id,

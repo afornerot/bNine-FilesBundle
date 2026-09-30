@@ -193,29 +193,37 @@
 
     // Normalise un item : accepte {path} ou {url} ou string
     // Retourne un objet avec :
-    //   - path : chemin PUR (apres domain/id/), ex: 'foo/bar.jpg'
+    //   - path : chemin COMPLET ('domain/id/foo/bar.jpg'), prêt à être stocké
+    //     tel quel dans l'input hidden et résolu par la fonction Twig bninefile().
     //   - url  : URL absolue generee via buildUrl (utilise la cle API publique)
     //   - name : basename du fichier (ex: 'bar.jpg')
     function normalizeItem(raw) {
         if (typeof raw === 'string') {
-            return { path: stripDomainPrefix(raw), url: buildUrl(raw), name: basenameOf(raw) };
+            return { path: ensureDomainPrefix(raw), url: buildUrl(raw), name: basenameOf(raw) };
         }
         if (!raw || typeof raw !== 'object') return null;
         var rawPath = raw.path || '';
-        var path = stripDomainPrefix(rawPath);
+        var path = ensureDomainPrefix(rawPath);
         var url = raw.url || (path ? buildUrl(path) : '');
         var name = raw.name || (path ? basenameOf(path) : (url ? basenameFromUrl(url) : 'image'));
         return { path: path, url: url, name: name };
     }
 
-    // Extrait le path pur apres 'domain/id/' : 'sample/1/foo/bar.jpg' → 'foo/bar.jpg'
-    function stripDomainPrefix(p) {
+    // Garantit que le path retourné est de la forme 'domain/id/...'.
+    //   - 'foo/bar.jpg'           (path pur)              → ajoute cfg.domain/cfg.entityId + '/' devant
+    //   - 'domain/id/foo/bar.jpg' (déjà préfixé)          → laissé tel quel
+    //   - 'domain/id'             (juste le préfixe)      → laissé tel quel
+    function ensureDomainPrefix(p) {
         if (!p || typeof p !== 'string') return '';
         var parts = p.split('/');
-        if (parts.length >= 3) {
-            return parts.slice(2).join('/');
+        // On a déjà au moins 'domain/id/...' ?
+        if (parts.length >= 3 && parts[0] && parts[1]) {
+            return p;
         }
-        return p;
+        // Sinon on préfixe avec le domain/id du widget courant.
+        if (!cfg.domain) return p;
+        var prefix = cfg.domain + '/' + cfg.entityId;
+        return parts[0] === '' ? prefix : prefix + '/' + p;
     }
 
     function basenameOf(p) {

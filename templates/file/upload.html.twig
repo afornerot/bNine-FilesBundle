@@ -31,13 +31,15 @@
         }
 
         // Dispatcher bnine:upload:done vers le parent
-        function dispatchUploadDone(filename, fileUrl) {
-            var basename = getBasename(filename);
+        // 'path' est TOUJOURS préfixé par 'domain/id/' pour que la valeur du
+        // hidden du widget puisse être utilisée telle quelle par la fonction
+        // Twig bninefile() et reconstruire /bninefiles/image/{domain}/{id}?path=...
+        function dispatchUploadDone(fullPath, fileUrl) {
             var detail = {
                 domain: '{{ domain }}',
                 id: '{{ id }}',
-                path: basename,
-                filename: basename,
+                path: fullPath,
+                filename: getBasename(fullPath),
                 url: fileUrl,
                 origin: origin,
                 endpoint: '{{ endpoint|default("bninefile") }}',
@@ -94,6 +96,9 @@
             queuecomplete: function () {
                 {% if crop is defined and crop %}
                 if (lastUploadedFilename) {
+                    // On préfixe par 'domain/id/' pour avoir un path complet
+                    // utilisable directement comme valeur de hidden par le widget.
+                    var fullPath = '{{ domain|e("js") }}/{{ id|default(0)|e("js") }}/' + getBasename(lastUploadedFilename);
                     var cropUrl = '{{ path("bninefiles_files_crop_page", {domain: domain, id: id}) }}'
                         + '?path=' + encodeURIComponent(getBasename(lastUploadedFilename))
                         + '&min_size={{ minSize|default(300) }}'
@@ -106,8 +111,11 @@
                 }
                 {% else %}
                 if (lastUploadedFilename) {
-                    var fileUrl = '{{ path("bninefiles_files_image", {domain: domain, id: id}) }}?path=' + encodeURIComponent(getBasename(lastUploadedFilename));
-                    dispatchUploadDone(getBasename(lastUploadedFilename), fileUrl);
+                    // fullPath = 'domain/id/basename' — c'est la valeur exacte que
+                    // le contrôleur a renvoyée dans response.filename (déjà préfixé).
+                    var fullPath = lastUploadedFilename;
+                    var fileUrl = '{{ path("bninefiles_files_image", {domain: domain, id: id}) }}?path=' + encodeURIComponent(getBasename(fullPath));
+                    dispatchUploadDone(fullPath, fileUrl);
                 }
                 window.parent.BnineModalClose();
                 {% endif %}
