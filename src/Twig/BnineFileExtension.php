@@ -46,6 +46,10 @@ class BnineFileExtension extends AbstractExtension
             return '/'.$value;
         }
 
+        if (str_starts_with($value, '**public**/')) {
+            return '/'.str_replace('**public**/', '', $value);
+        }
+
         $parts = explode('/', $value, 3);
         if (count($parts) === 3) {
             [$domain, $id, $path] = $parts;
