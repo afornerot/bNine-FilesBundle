@@ -119,107 +119,39 @@ function BnineModalClose() {
 }
 
 //== Icon Upload Widget =======================================================
+// DEPRECATION NOTE :
+// Avant, ce fichier injectait tout le wrapping HTML (preview + bouton) autour
+// du champ .icon-input. C'est désormais géré côté Twig via :
+//   - vendor/bnine/filesbundle/templates/Form/icon_upload.html.twig
+//   - vendor/bnine/filesbundle/templates/Form/_theme.html.twig (branche icon_upload)
+//   - IconUploadType::getBlockPrefix() = 'icon_upload'
+//
+// Le bloc ci-dessous conserve uniquement les listeners bnine:upload:done /
+// bnine:crop:done qui mettent a jour la valeur du hidden. Ces listeners
+// restent utiles pour les apps hotes qui n'ont pas encore migre vers
+// le rendu Twig (les apps en cours de migration peuvent coexister).
+
 $(document).ready(function () {
-    // Fonction INTERNE au bundle : met a jour l'input + la preview apres
-    // upload ou crop.
+    // Met a jour la valeur du champ hidden apres upload ou crop.
+    // On se base sur _bnineCurrentInput (positionne par BnineModalOpen).
     function applyIconUploadResult(detail) {
         var currentInputId = _bnineCurrentInput;
         if (!currentInputId) return;
 
-        var $input = document.getElementById(currentInputId);
-        if (!$input) return;
-
-        var $inputJq = window.jQuery ? window.jQuery($input) : null;
+        var input = document.getElementById(currentInputId);
+        if (!input) return;
 
         var filepath = (detail && detail.path) || '';
-        var fileUrl = (detail && detail.url) || '';
 
-        if ($inputJq) {
-            $inputJq.val(filepath).trigger('change');
-        } else {
-            $input.value = filepath;
-            $input.dispatchEvent(new Event('change', { bubbles: true }));
-        }
-
-        // Mettre a jour la preview img
-        var previewImg = document.getElementById(currentInputId + '_img');
-        if (previewImg && fileUrl) {
-            previewImg.setAttribute('src', fileUrl);
-            previewImg.style.display = '';
-        }
+        input.value = filepath;
+        input.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    // Listeners INTERNES au bundle : apres upload ou crop, mettre a jour
-    // l'input + la preview associes au widget IconUploadType.
-    // (Avant c'etait gere par window.imageUploadDone qui est supprime.)
     document.addEventListener('bnine:upload:done', function (e) {
         applyIconUploadResult(e.detail || {});
     });
     document.addEventListener('bnine:crop:done', function (e) {
         applyIconUploadResult(e.detail || {});
-    });
-
-    $('.icon-input').each(function () {
-        var $input = $(this);
-        var $id = $input.attr('id') || 'id';
-        var value = $input.val() || '';
-        var label = $input.data('icon-label') || 'Icon';
-        var uploadUrl = $input.data('upload-url') || '';
-        var previewMaxHeight = parseInt($input.data('preview-max-height'), 10) || 100;
-
-        if ($input.parent().hasClass('icon-wrapper')) return;
-
-        var $wrapper = $('<div class="text-center d-flex flex-column align-items-center mb-3 icon-wrapper"></div>');
-        $input.wrap($wrapper);
-
-        // Preview : hauteur max configurable via preview-max-height (defaut 100px)
-        var $preview = $('<img id="' + $id + '_img" class="bigavatar mb-2" style="background-color: var(--bs-dark); max-height:' + previewMaxHeight + 'px;">');
-        $preview.attr('src', value ? (value.startsWith('/') ? value : '/' + value) : '');
-        if (!value) $preview.css('display', 'none');
-        $input.parent().prepend($preview);
-
-        if (uploadUrl) {
-            // Generer un UUID unique par widget pour identifier l'origine
-            var widgetId = (typeof bnineUuid === 'function') ? bnineUuid() : ('icon-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
-            $input.attr('data-instance', widgetId);
-
-            // Injecter l'origin dans l'URL d'upload pour que l'iframe puisse le recuperer
-            var uploadUrlWithOrigin = uploadUrl;
-            if (uploadUrlWithOrigin.indexOf('origin=') === -1) {
-                uploadUrlWithOrigin += (uploadUrlWithOrigin.indexOf('?') === -1 ? '?' : '&') + 'origin=' + encodeURIComponent(widgetId);
-            }
-
-            var $btn = $('<a class="btn btn-info" style="max-width:100%; margin-bottom:15px;"></a>');
-            $btn.attr('onclick', "BnineModalOpen({id:'bnine-modal-" + $id + "',title:'" + label + "',url:'" + uploadUrlWithOrigin + "',currentInput:'" + $id + "',widgetId:'" + widgetId + "',endpoint:'iconupload'});");
-            $btn.attr('title', 'Ajouter ' + label);
-            $btn.text('Modifier');
-            $input.parent().append($btn);
-        }
-
-        $input.on('change', function () {
-            var val = $(this).val();
-            if (val) {
-                var src = val.startsWith('/') ? val : '/' + val;
-                $preview.attr('src', src).show();
-            } else {
-                $preview.hide();
-            }
-
-            // Dispatcher bnine:iconupload:change
-            var detail = {
-                value: val,
-                inputId: $id,
-                origin: $input.data('instance') || null,
-            };
-            if (typeof bnineDispatch === 'function') {
-                bnineDispatch('bnine:iconupload:change', detail, document);
-            } else {
-                var ev;
-                try { ev = new CustomEvent('bnine:iconupload:change', { detail: detail, bubbles: true }); }
-                catch (e) { ev = document.createEvent('CustomEvent'); ev.initCustomEvent('bnine:iconupload:change', true, false, detail); }
-                document.dispatchEvent(ev);
-            }
-        });
     });
 });
 

@@ -35,9 +35,19 @@ class IconUploadType extends AbstractType
             'crop_configurable' => false,
             // Taille d'affichage du thumb de retour (px, défaut 100)
             'preview_max_height' => 100,
+            // Classes CSS appliquees a la balise <img> de preview.
+            // 'img_class' : classes ajoutees en plus des classes par defaut
+            //               (bigavatar, icon-upload-preview). Mettez par ex.
+            //               'rounded-circle shadow-sm' pour un avatar rond.
+            // 'img_class_replace' : si true, remplace les classes par defaut
+            //                       au lieu de les ajouter.
+            'img_class' => '',
+            'img_class_replace' => false,
         ]);
         $resolver->setAllowedTypes('icon_domain', 'string');
         $resolver->setAllowedTypes('icon_entity_id', ['int', 'string']);
+        $resolver->setAllowedTypes('img_class', 'string');
+        $resolver->setAllowedTypes('img_class_replace', 'bool');
     }
 
     public function buildView(FormView $view, FormInterface $form, array $options): void
@@ -84,10 +94,25 @@ class IconUploadType extends AbstractType
         $view->vars['icon_endpoint'] = $options['icon_endpoint'];
         $view->vars['icon_label'] = $options['icon_label'];
         $view->vars['preview_max_height'] = (int) $options['preview_max_height'];
+        $view->vars['img_class'] = $options['img_class'];
+        $view->vars['img_class_replace'] = (bool) $options['img_class_replace'];
     }
 
     public function getParent(): string
     {
         return HiddenType::class;
+    }
+
+    /**
+     * Permet au theme Twig du bundle (_theme.html.twig) d'intercepter
+     * le rendu du widget IconUploadType via le prefixe 'icon_upload'.
+     *
+     * Sans ce prefixe, block_prefixes ne contient que ['hidden', 'form']
+     * (car getParent() = HiddenType) et la branche icon_upload du theme
+     * ne match jamais.
+     */
+    public function getBlockPrefix(): string
+    {
+        return 'icon_upload';
     }
 }

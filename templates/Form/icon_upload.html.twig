@@ -1,0 +1,157 @@
+{#
+    Template de widget pour Bnine\FilesBundle\Form\Type\IconUploadType.
+
+    Rend le HTML complet du widget : preview image + bouton "Modifier" + champ hidden.
+    Le path de la preview est gere cote Twig via bninefile() (l'extension Twig du bundle),
+    ce qui evite d'avoir a manipuler le '/' cote JS.
+
+    Variables exposees par IconUploadType::buildView() :
+        - value              : valeur courante du champ (chemin normalise "domain/id/...")
+        - attr               : attributs HTML (avec data-upload-url, data-icon-empty-preview, etc.)
+        - icon_endpoint      : endpoint JS (defaut 'icon')
+        - icon_label         : label du bouton
+        - icon_empty_preview : chemin de l'image par defaut
+        - preview_max_height : hauteur max de la preview en px (defaut 100)
+        - img_class          : classes CSS supplementaires ajoutees a la balise <img>
+                               (par defaut : 'bigavatar mb-2 icon-upload-preview')
+        - img_class_replace  : si true, remplace les classes par defaut par img_class
+#}
+
+{% set _id = id|default('icon_upload_' ~ random()) %}
+{% set _value = value|default('') %}
+{% set _upload_url = attr['data-upload-url']|default('') %}
+{% set _empty_preview = icon_empty_preview|default('medias/icon/icon_pin.png') %}
+{% set _preview_height = preview_max_height|default(100) %}
+{% set _preview_url = _value ? bninefile(_value) : '' %}
+{% set _extra_class = img_class|default('') %}
+{% set _class_replace = img_class_replace|default(false) %}
+{% if _class_replace %}
+    {% set _img_class = _extra_class %}
+{% else %}
+    {% set _img_class = 'mb-2 icon-upload-preview ' ~ _extra_class %}
+{% endif %}
+
+<div class="text-center d-flex flex-column align-items-center mb-3 icon-upload-wrapper"
+     data-instance="{{ _id }}">
+
+    <img id="{{ _id }}_img"
+         class="{{ _img_class }}"
+         style="background-color: var(--bs-dark); max-height: {{ _preview_height }}px;{% if not _preview_url %}display: none;{% endif %}"
+         src="{{ _preview_url }}"
+         alt="">
+
+    {% if _upload_url %}
+        <button type="button"
+                class="btn btn-sm btn-outline-primary icon-upload-btn"
+                data-upload-url="{{ _upload_url }}"
+                data-icon-empty-preview="{{ asset(_empty_preview) }}"
+                data-instance="{{ _id }}">
+            <i class="fas fa-upload"></i> {{ icon_label|default('Icon') }}
+        </button>
+    {% endif %}
+
+    <input type="hidden"
+           id="{{ _id }}"
+           name="{{ full_name }}"
+           value="{{ _value }}"
+           class="form-control icon-input-hidden"
+           {% for attr_name, attr_val in attr %}
+               {% if attr_name starts with 'data-' and attr_name not in ['data-upload-url'] %}
+                   {{ attr_name }}="{{ attr_val }}"
+               {% endif %}
+           {% endfor %}
+           data-instance="{{ _id }}">
+</div>
+
+<script>
+    (function () {
+        var wrapper = document.currentScript ? document.currentScript.previousElementSibling : null;
+        if (!wrapper || !wrapper.classList.contains('icon-upload-wrapper')) {
+            var hidden = document.querySelector('input.icon-input-hidden[data-instance]');
+            wrapper = hidden ? hidden.closest('.icon-upload-wrapper') : null;
+        }
+        if (!wrapper) return;
+
+        var instanceId = wrapper.dataset.instance;
+        var hidden = wrapper.querySelector('input[type="hidden"]');
+        var preview = wrapper.querySelector('.icon-upload-preview');
+        var btn = wrapper.querySelector('.icon-upload-btn');
+
+        if (!hidden || !preview) return;
+
+        // URL de preview vide (noavatar / icon par defaut)
+        var emptyPreview = btn ? (btn.dataset.iconEmptyPreview || '') : '';
+        var widgetId = instanceId;
+
+        // Reconstruit l'URL de preview a partir d'un path bundle (domain/id/path)
+        // en utilisant la route bninefiles_files_image cote navigateur.
+        // Le path peut deja commencer par '/' (bninefile() gere ca cote Twig, mais
+        // ici on travaille avec la valeur brute du hidden).
+        function buildPreviewUrl(path) {
+            if (!path) return '';
+            if (path.indexOf('/') === 0) return path;
+            var parts = path.split('/');
+            if (parts.length < 3) return '/' + path;
+            var domain = parts[0];
+            var id = parts[1];
+            var subPath = parts.slice(2).join('/');
+            return '/bninefiles/image/' + domain + '/' + id + '?path=' + encodeURIComponent(subPath);
+        }
+
+        // Met a jour la preview apres upload / crop / clear
+        function refreshPreview(val) {
+            if (val) {
+                preview.src = buildPreviewUrl(val);
+                preview.style.display = '';
+            } else {
+                preview.src = emptyPreview;
+                preview.style.display = 'none';
+            }
+        }
+
+        // Ouvre la modal d'upload / crop sur clic du bouton
+        if (btn) {
+            btn.addEventListener('click', function () {
+                var uploadUrl = btn.dataset.uploadUrl || '';
+                if (!uploadUrl) return;
+
+                var originId = (typeof bnineUuid === 'function')
+                    ? bnineUuid()
+                    : ('icon-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+
+                if (uploadUrl.indexOf('origin=') === -1) {
+                    uploadUrl += (uploadUrl.indexOf('?') === -1 ? '?' : '&') + 'origin=' + encodeURIComponent(originId);
+                }
+
+                BnineModalOpen({
+                    id: 'bnine-modal-' + widgetId,
+                    title: btn.textContent.trim() || 'Icon',
+                    url: uploadUrl,
+                    height: '600px',
+                    currentInput: hidden.id,
+                    widgetId: widgetId,
+                    endpoint: 'iconupload',
+                    onClose: function () {
+                        refreshPreview(hidden.value);
+                    }
+                });
+            });
+        }
+
+        // Listener global : apres upload ou crop, mettre a jour la preview
+        // de TOUS les widgets IconUploadType dont la valeur du hidden a change.
+        // (Le bundle pose deja la valeur dans le hidden via bninefiles.js applyIconUploadResult.)
+        function maybeRefresh(e) {
+            if (!e || !e.detail) return;
+            var targetId = e.detail.inputId || (e.detail.currentInput || null);
+            if (targetId && targetId === hidden.id) {
+                var newVal = (e.detail.path !== undefined) ? e.detail.path : hidden.value;
+                hidden.value = newVal;
+                refreshPreview(newVal);
+            }
+        }
+
+        document.addEventListener('bnine:upload:done', maybeRefresh);
+        document.addEventListener('bnine:crop:done', maybeRefresh);
+    })();
+</script>

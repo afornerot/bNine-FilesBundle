@@ -1,22 +1,69 @@
 {#
-    Theme Twig pour Bnine\FilesBundle\Form\Type\SelectFileType.
+    Theme Twig pour Bnine\FilesBundle\Form\Type\SelectFileType et IconUploadType.
 
     Ce theme surcharge les blocs `hidden_widget` et `hidden_row` pour intercepter
-    uniquement les champs SelectFileType.
+    uniquement les champs geres par le bundle.
 
     block_prefixes contient tous les prefixes de la chaîne d'héritage, ex:
-    ['select_file', 'hidden', 'form']. On vérifie si 'select_file' est dans
-    le tableau pour détecter nos champs.
+    ['select_file', 'hidden', 'form']. On vérifie si le prefixe attendu est
+    dans le tableau pour detecter nos champs.
 
-    Pour SelectFileType : le HTML du widget bundle est pré-rendu par SelectFileType::buildView()
-    et stocké dans form.vars.widget_html. On l'affiche directement via |raw.
-    Pour IconUploadType et autres HiddenType : on génère directement l'input caché
-    (le rendu de bundle IconUploadType est géré par bninefiles.js via la classe .icon-input).
+    - SelectFileType : le HTML du widget bundle est pré-rendu par SelectFileType::buildView()
+      et stocké dans form.vars.widget_html. On l'affiche directement via |raw.
+    - IconUploadType : on delegue au template Form/icon_upload.html.twig qui rend
+      preview + bouton + input cache en HTML statique (plus de wrapping JS global).
 #}
 
 {% block hidden_widget %}
     {% if 'select_file' in form.vars.block_prefixes|default([]) %}
         {{ form.vars.widget_html|default('')|raw }}
+    {% elseif 'icon_upload' in form.vars.block_prefixes|default([]) %}
+        {% set _icon_value = value|default('') %}
+        {% set _icon_preview = _icon_value ? bninefile(_icon_value) : '' %}
+        {% set _icon_empty = icon_empty_preview|default('medias/icon/icon_pin.png') %}
+        {% set _icon_max_h = preview_max_height|default(100) %}
+        {% set _icon_label = icon_label|default('Icon') %}
+        {% set _icon_upload_url = attr['data-upload-url']|default('') %}
+        {% set _icon_id = id|default('icon_upload_' ~ random()) %}
+        {% set _icon_extra_class = img_class|default('') %}
+        {% set _icon_class_replace = img_class_replace|default(false) %}
+        {% if _icon_class_replace %}
+            {% set _icon_img_class = _icon_extra_class %}
+        {% else %}
+            {% set _icon_img_class = 'mb-2 icon-upload-preview ' ~ _icon_extra_class %}
+        {% endif %}
+        <div class="text-center d-flex flex-column align-items-center mb-3 icon-upload-wrapper" data-instance="{{ _icon_id }}">
+            <img id="{{ _icon_id }}_img"
+                 class="{{ _icon_img_class }}"
+                 style="background-color: var(--bs-dark); max-height: {{ _icon_max_h }}px;{% if not _icon_preview %}display: none;{% endif %}"
+                 src="{{ _icon_preview }}"
+                 alt="">
+            {% if _icon_upload_url %}
+                <button type="button"
+                        class="btn btn-sm btn-outline-primary icon-upload-btn"
+                        data-upload-url="{{ _icon_upload_url }}"
+                        data-icon-empty-preview="{{ asset(_icon_empty) }}"
+                        data-instance="{{ _icon_id }}">
+                    <i class="fas fa-upload"></i> {{ _icon_label }}
+                </button>
+            {% endif %}
+            <input type="{{ type|default('hidden') }}"
+                   id="{{ _icon_id }}"
+                   name="{{ full_name }}"
+                   value="{{ _icon_value }}"
+                   class="form-control icon-input-hidden"
+                   {% for _an, _av in attr %}
+                       {% if _an starts with 'data-' and _an != 'data-upload-url' %}
+                           {{ _an }}="{{ _av }}"
+                       {% endif %}
+                   {% endfor %}
+                   data-instance="{{ _icon_id }}">
+        </div>
+        {% include '@BnineFiles/Form/_icon_upload_script.html.twig' with {
+            _icon_id: _icon_id,
+            _icon_class_replace: _icon_class_replace,
+            _icon_extra_class: _icon_extra_class
+        } only %}
     {% else %}
         <input type="{{ type|default('hidden') }}" {{ block('widget_attributes') }} {% if value is not empty %}value="{{ value }}" {% endif %}/>
     {% endif %}
@@ -29,8 +76,9 @@
         {% endif %}
         {{ form.vars.widget_html|default('')|raw }}
         {{ form_errors(form) }}
+    {% elseif 'icon_upload' in form.vars.block_prefixes|default([]) %}
+        {{- block('hidden_widget') -}}
     {% else %}
         {{- block('hidden_widget') -}}
     {% endif %}
 {% endblock %}
-

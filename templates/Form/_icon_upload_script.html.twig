@@ -1,0 +1,87 @@
+{#
+    Script inline pour le widget IconUploadType.
+
+    Responsabilites :
+      - ouvrir la modal d'upload/crop au clic du bouton
+      - mettre a jour la preview apres upload / crop / clear
+
+    Variables :
+      - _icon_id : id du champ hidden (utilise pour cibler preview + bouton)
+#}
+<script>
+    (function () {
+        var iconId = '{{ _icon_id|default("") }}';
+        if (!iconId) return;
+
+        var hidden = document.getElementById(iconId);
+        if (!hidden) return;
+
+        var wrapper = hidden.closest('.icon-upload-wrapper');
+        if (!wrapper) return;
+
+        var preview = wrapper.querySelector('.icon-upload-preview');
+        var btn = wrapper.querySelector('.icon-upload-btn');
+        var emptyPreview = btn ? (btn.dataset.iconEmptyPreview || '') : '';
+
+        function buildPreviewUrl(path) {
+            if (!path) return '';
+            if (path.charAt(0) === '/') return path;
+            var parts = path.split('/');
+            if (parts.length < 3) return '/' + path;
+            return '/bninefiles/image/' + parts[0] + '/' + parts[1]
+                + '?path=' + encodeURIComponent(parts.slice(2).join('/'));
+        }
+
+        function refreshPreview(val) {
+            if (!preview) return;
+            if (val) {
+                preview.src = buildPreviewUrl(val);
+                preview.style.display = '';
+            } else {
+                preview.src = emptyPreview;
+                preview.style.display = 'none';
+            }
+        }
+
+        if (btn) {
+            btn.addEventListener('click', function () {
+                var uploadUrl = btn.dataset.uploadUrl || '';
+                if (!uploadUrl) return;
+
+                var originId = (typeof bnineUuid === 'function')
+                    ? bnineUuid()
+                    : ('icon-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8));
+
+                if (uploadUrl.indexOf('origin=') === -1) {
+                    uploadUrl += (uploadUrl.indexOf('?') === -1 ? '?' : '&') + 'origin=' + encodeURIComponent(originId);
+                }
+
+                BnineModalOpen({
+                    id: 'bnine-modal-' + iconId,
+                    title: (btn.textContent || '').trim() || 'Icon',
+                    url: uploadUrl,
+                    height: '600px',
+                    currentInput: hidden.id,
+                    widgetId: iconId,
+                    endpoint: 'iconupload',
+                    onClose: function () {
+                        refreshPreview(hidden.value);
+                    }
+                });
+            });
+        }
+
+        function maybeRefresh(e) {
+            if (!e || !e.detail) return;
+            var targetId = e.detail.inputId || (e.detail.currentInput || null);
+            if (targetId && targetId === hidden.id) {
+                var newVal = (e.detail.path !== undefined) ? e.detail.path : hidden.value;
+                hidden.value = newVal;
+                refreshPreview(newVal);
+            }
+        }
+
+        document.addEventListener('bnine:upload:done', maybeRefresh);
+        document.addEventListener('bnine:crop:done', maybeRefresh);
+    })();
+</script>
