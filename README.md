@@ -27,6 +27,7 @@ Toutes les routes sont préfixées par `/bninefiles`.
 17. [API publique (résumé)](#17-api-publique-résumé)
 18. [Stratégie de cache HTTP (`CachePolicyInterface`)](#18-stratégie-de-cache-http-cachepolicyinterface)
 19. [CustomEvents JS (extension cote navigateur)](#19-customevents-js-extension-cote-navigateur)
+20. [Configuration firewall (cache navigateur)](#20-configuration-firewall-cache-navigateur)
 
 ---
 
@@ -592,6 +593,8 @@ Champ caché qui ouvre une modale d'upload, affiche une preview, supporte le rec
 | `crop_ratio` | string | `"1/1"` | Ratio largeur/hauteur (`"1/1"`, `"16/9"`, `"4/3"`, `"free"`, …) |
 | `crop_configurable` | bool | `false` | `true` = champs `min_size` et `ratio` éditables dans la modale crop |
 | `preview_max_height` | int | `100` | Hauteur max (px) de la preview dans le widget parent |
+| `img_class` | string | `""` | Classes CSS supplémentaires ajoutées à la balise `<img>` de la preview. Les classes par défaut (`mb-2 icon-upload-preview`) restent présentes sauf si `img_class_replace=true`. |
+| `img_class_replace` | bool | `false` | `true` = remplace **toutes** les classes par défaut de l'`<img>` par `img_class`. Utile pour les styles très spécifiques. |
 
 > `icon_domain` et `icon_entity_id` sont validés en type par `setAllowedTypes` (string / int|string). Le router est injecté via `setRouter()` (autoconfiguré dans `config/services.yaml` du bundle).
 
@@ -645,8 +648,34 @@ $builder
 ```twig
 {{ form_label(form.avatar) }}
 {{ form_widget(form.avatar) }}
-{# Le thème générique Symfony rend l'input caché.
-   Le JS du bundle (bninefiles.js) ajoute preview + bouton "Modifier" via la classe .icon-input. #}
+{# Le thème du bundle (_theme.html.twig) intercepte le rendu du champ via
+   le préfixe 'icon_upload' et délègue à icon_upload.html.twig, qui produit
+   preview + bouton "Modifier" + input caché en HTML statique.
+   L'URL de la preview passe par la fonction Twig bninefile() (cf. §12)
+   pour ajouter le '/' de manière cohérente côté serveur. #}
+```
+
+Le rendu complet du widget (HTML + JS inline d'ouverture de modale) est
+fait **côté Twig** par `templates/Form/icon_upload.html.twig`. Il n'y a
+plus de wrapping JS global sur la classe `.icon-input`. Le bundle garde
+cependant un listener JS léger (`bnine:upload:done` / `bnine:crop:done`)
+pour écrire la valeur dans le champ caché après upload/crop.
+
+Pour personnaliser les classes CSS de l'image preview :
+
+```php
+// Ajoute 'rounded-circle shadow-sm' aux classes par défaut
+->add('avatar', IconUploadType::class, [
+    // ...
+    'img_class' => 'rounded-circle shadow-sm',
+])
+
+// Remplace totalement les classes par défaut
+->add('logo', IconUploadType::class, [
+    // ...
+    'img_class' => 'company-logo',
+    'img_class_replace' => true,
+])
 ```
 
 ### 9.4 Persistance
@@ -657,6 +686,42 @@ Le champ est un `HiddenType`. La valeur stockée est le **chemin relatif** retou
 - Autres domaines : `{file}.{ext}` ou `{subdir}/{file}.{ext}`.
 
 Pour afficher le fichier : utiliser la fonction Twig `bninefile()` (section 12).
+
+### 9.5 BREAKING CHANGES v1.5.6+ : rendu Twig + suppression de `.icon-input`
+
+Avant la v1.5.6, le widget `IconUploadType` injectait tout le wrapping
+HTML (preview + bouton "Modifier") via JS sur la classe `.icon-input`.
+C'est désormais fait **côté Twig** dans `templates/Form/icon_upload.html.twig`
+et le theme `_theme.html.twig` (branche `'icon_upload' in block_prefixes`).
+
+**Impacts éventuels pour les apps hotes :**
+
+- Si vous aviez customisé le CSS via la classe `.icon-input` sur le champ
+  caché → elle n'est plus posée. Le nouveau DOM utilise
+  `.icon-upload-wrapper` (div parente) + `.icon-upload-preview` (img) +
+  `.icon-upload-btn` (bouton) + `.icon-input-hidden` (input caché).
+  Les classes par défaut de l'img sont `mb-2 icon-upload-preview`. Utilisez
+  l'option `img_class` pour ajouter les vôtres.
+
+- Si vous aviez du JS applicatif qui ciblait `.icon-input` (jQuery /
+  addEventListener) → basculez sur `.icon-upload-wrapper` ou sur
+  l'`id` du champ caché (généré par Symfony).
+
+- L'event CustomEvent `bnine:iconupload:change` continue d'être dispatché
+  (cf. §19.1). Le `bnine:crop:done` et `bnine:upload:done` aussi.
+
+**Migration recommandée :**
+
+```twig
+{# Avant : ciblage via .icon-input #}
+{# Votre sélecteur jQuery $('.icon-input').on('change', ...) #}
+
+{# Après : ciblage via .icon-upload-wrapper (exemple Bootstrap) #}
+{# Votre sélecteur jQuery $('.icon-upload-wrapper input[type="hidden"]').on('change', ...) #}
+```
+
+Ou mieux : écoutez les CustomEvents (cf. §19) — ça découple votre code
+du DOM du bundle.
 
 ---
 
@@ -1353,6 +1418,88 @@ Helper UUID : `window.bnineUuid()` retourne un UUID v4.
 Helper dispatch (utilisé en interne) : `window.bnineDispatch(name, detail, target)` dispatch un CustomEvent avec fallback IE/old Edge.
 
 ---
+
+## 20. Configuration firewall (cache navigateur)
+
+Les routes `bninefiles_files_image` et `bninefiles_files_thumbnail` répondent
+avec `Cache-Control: max-age=2592000, public` (ou la valeur de votre
+`CachePolicy`). Pour que le navigateur/CDN puisse réellement cacher ces
+réponses, il faut **éviter que Symfony ne force `Cache-Control: no-cache,
+private`** au niveau du session listener.
+
+### 20.1 Le problème
+
+`Symfony\Component\HttpKernel\EventListener\AbstractSessionListener`
+force `setPrivate()` + `setMaxAge(0)` + `must-revalidate` dès qu'une
+session est démarrée sur la requête (comportement par défaut en `prod`).
+Si votre firewall principal capture `/bninefiles/...` (par exemple avec
+un pattern `^/`), toutes les requêtes sur les routes du bundle
+démarrent une session → le `Cache-Control` posé par le bundle est écrasé.
+
+### 20.2 Symptômes
+
+```
+$ curl -I https://app/bninefiles/image/avatar/0?path=...
+Cache-Control: max-age=0, must-revalidate, private
+Last-Modified: ...
+```
+
+→ Le navigateur ne cache rien malgré le bundle.
+
+### 20.3 Solution : firewall stateless dédié
+
+Dans `config/packages/security.yaml`, déclarez un firewall `security: false`
+et `stateless: true` pour les routes publiques **avant** le firewall
+principal. Restreignez le pattern aux seules routes qui doivent être
+publiques (celles qui posent des headers `Cache-Control: public`) :
+
+```yaml
+security:
+    firewalls:
+        # ... autres firewalls ...
+
+        bninefiles:
+            # Routes publiques : image, thumbnail.
+            # Les routes protegees (uploadmodal, uploadfile, delete, mkdir,
+            # crop, browse, gallery, download) restent sous le firewall
+            # principal et gardent leur FileVoter.
+            pattern: ^/bninefiles/(image|thumbnail)/
+            security: false
+            stateless: true
+
+        main:
+            pattern: ^/
+            # ... votre config classique ...
+```
+
+> ⚠️ Ne mettez **PAS** tout `^/bninefiles` en `security: false` : cela
+> exposerait aussi les routes d'upload, de suppression et de crop, qui
+> doivent rester protégées par `FileVoter`.
+
+### 20.4 Vérification
+
+```bash
+$ curl -sI https://app/bninefiles/image/avatar/0?path=... | grep -i cache-control
+Cache-Control: max-age=2592000, public
+```
+
+Et pour s'assurer qu'une route protégée redirige toujours vers le login :
+
+```bash
+$ curl -sI https://app/bninefiles/uploadmodal/avatar/0?crop=1 | head -1
+HTTP/1.1 302 Found
+Location: /login
+```
+
+### 20.5 Alternative : CachePolicy custom
+
+Si pour une raison quelconque vous ne pouvez pas toucher à la config
+firewall (par ex. reverse-proxy qui injecte la session), vous pouvez
+toujours surcharger la stratégie de cache du bundle en implémentant
+`Bnine\FilesBundle\Cache\CachePolicyInterface` (voir §18). Cela ne
+changera rien au problème de fond (Symfony force `private`), mais peut
+être combiné avec un `setSharedMaxAge()` ou des headers `Vary: Cookie`
+selon votre infra.
 
 ---
 
