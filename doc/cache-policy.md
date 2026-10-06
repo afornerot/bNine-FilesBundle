@@ -111,3 +111,15 @@ public function getCacheMaxAge(string $domain, string $id, string $filePath): ?i
 ## Rétrocompatibilité
 
 Si vous ne déclarez aucun `CachePolicyInterface` custom, le bundle utilise `DefaultCachePolicy` qui retourne `null` partout → comportement par défaut inchangé (30 jours, public). Aucun breaking change pour les apps existantes.
+
+## ⚠️ CachePolicy ≠ bypass du SessionListener
+
+Implémenter `CachePolicyInterface` modifie les directives `Cache-Control`
+posées par le bundle, **mais** Symfony `AbstractSessionListener` peut
+écraser ces directives par `Cache-Control: private, max-age=0` dès qu'une
+session est démarrée (cas typique : un firewall principal capturant
+`/bninefiles/...` ou une session anonyme).
+
+Pour un cache navigateur réellement actif en production, voir
+[firewall-cache.md](firewall-cache.md) qui documente firewall stateless
+dédié + `context` et EventSubscriber `kernel.response`.

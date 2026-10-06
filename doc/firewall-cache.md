@@ -25,11 +25,11 @@ Last-Modified: ...
 
 → Le navigateur ne cache rien malgré le bundle.
 
-## Solution : firewall stateless dédié
+## Solution 1 : firewall stateless dédié + `context`
 
-Dans `config/packages/security.yaml`, déclarez un firewall `security: false`
-et `stateless: true` pour les routes publiques **avant** le firewall
-principal. Restreignez le pattern aux seules routes qui doivent être
+Dans `config/packages/security.yaml`, déclarez un firewall `security: false`,
+`stateless: true` et `context: <firewall_principal>` pour les routes
+publiques. Restreignez le pattern aux seules routes qui doivent être
 publiques (celles qui posent des headers `Cache-Control: public`) :
 
 ```yaml
@@ -45,15 +45,89 @@ security:
             pattern: ^/bninefiles/(image|thumbnail)/
             security: false
             stateless: true
+            context: main    # partage le token utilisateur du firewall principal
 
         main:
             pattern: ^/
             # ... votre config classique ...
 ```
 
-> ⚠️ Ne mettez **PAS** tout `^/bninefiles` en `security: false` : cela
-> exposerait aussi les routes d'upload, de suppression et de crop, qui
-> doivent rester protégées par `FileVoter`.
+⚠️ Ne mettez **PAS** tout `^/bninefiles` en `security: false` : cela
+exposerait aussi les routes d'upload, de suppression et de crop, qui
+doivent rester protégées par `FileVoter`.
+
+> ℹ️ Le `context: main` permet à `FileVoter` (et donc au contrôleur
+> `FileController::image()`) de récupérer le token utilisateur authentifié
+> dans le firewall principal. Sans `context`, `$token->getUser()` retournerait
+> `null` et toutes les vérifications d'accès échoueraient.
+
+⚠️ **Limitation connue** : sur certaines versions de Symfony 7.x,
+`stateless: true` ne suffit pas à empêcher le `SessionListener` global de
+poser ses headers `Cache-Control: private` (vérifié sur Symfony 7.4).
+Dans ce cas, la Solution 2 s'impose.
+
+## Solution 2 : EventSubscriber de cache (fallback fiable)
+
+Si la Solution 1 ne suffit pas dans votre version de Symfony (headers
+toujours écrasés), ou si vous ne pouvez pas créer un firewall dédié
+(reverse-proxy, mutualisation, etc.), utilisez un `kernel.response`
+listener à priorité basse pour ré-appliquer les directives de cache
+**après** que Symfony les ait écrasées.
+
+```php
+<?php
+// src/EventSubscriber/BninefilesCacheSubscriber.php
+
+namespace App\EventSubscriber;
+
+use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\HttpKernel\Event\ResponseEvent;
+use Symfony\Component\HttpKernel\KernelEvents;
+
+class BninefilesCacheSubscriber implements EventSubscriberInterface
+{
+    public static function getSubscribedEvents(): array
+    {
+        return [
+            // Priorité basse pour s'exécuter APRÈS AbstractSessionListener.
+            KernelEvents::RESPONSE => ['onKernelResponse', -1024],
+        ];
+    }
+
+    public function onKernelResponse(ResponseEvent $event): void
+    {
+        if (!$event->isMainRequest()) {
+            return;
+        }
+
+        $path = $event->getRequest()->getPathInfo();
+        if (!str_starts_with($path, '/bninefiles/')) {
+            return;
+        }
+
+        $response = $event->getResponse();
+        if (!$response->isSuccessful()) {
+            return;
+        }
+
+        // Adapter le max-age selon vos besoins.
+        $maxAge = str_starts_with($path, '/bninefiles/thumbnail/')
+            ? 31536000   // 1 an pour les thumbnails (régénérés à la demande)
+            : 2592000;   // 30 jours pour les images
+
+        $response->setPublic();
+        $response->setMaxAge($maxAge);
+    }
+}
+```
+
+Ce listener s'exécute **après** le `SessionListener` (priorité par défaut
+0) et **après** le `RouterListener` (priorité 32 sur `kernel.request`
+mais inoffensif sur `kernel.response`). Il écrase proprement les
+directives `private` et `max-age=0` que Symfony aurait pu poser.
+
+Le service est auto-taggé par `autoconfigure: true` (cf.
+`config/services.yaml` du projet hôte).
 
 ## Vérification
 
@@ -69,6 +143,23 @@ $ curl -sI https://app/bninefiles/uploadmodal/avatar/0?crop=1 | head -1
 HTTP/1.1 302 Found
 Location: /login
 ```
+
+## Combiner les deux solutions
+
+Dans la pratique, combiner les deux est la meilleure approche :
+
+- **Solution 1** (firewall dédié) :
+  - Évite le démarrage de session sur `/bninefiles/(image|thumbnail)/`
+  - Partage le token utilisateur via `context: main`
+  - Le contrôleur peut faire `denyAccessUnlessGranted(VIEW, [...])` correctement
+
+- **Solution 2** (EventSubscriber) :
+  - Garantit que les headers `Cache-Control` du bundle ne sont pas écrasés
+  - Marche même si le firewall principal capture la requête
+  - Marche même en présence d'un reverse-proxy
+
+C'est la configuration recommandée pour les projets en production où les
+performances de cache navigateur sont critiques.
 
 ## Alternative : CachePolicy custom
 
