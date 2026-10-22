@@ -12,12 +12,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% if select == 'multiple' %}Sélectionner des images{% else %}Sélectionner une image{% endif %}</title>
-    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/fontawesome.min.css') }}">
-    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/css/bninefiles.css') }}">
-    <script src="{{ asset('bundles/bninefiles/lib/js/jquery.min.js') }}"></script>
-    <script src="{{ asset('bundles/bninefiles/lib/js/bootstrap.bundle.min.js') }}"></script>
-    <script src="{{ asset('bundles/bninefiles/js/bninefiles.js') }}"></script>
+    {{ include('@BnineFiles/partials/_iframe_assets.html.twig', { _iframe_context: 'gallery' }) }}
 </head>
 <body>
 {% endif %}

@@ -185,10 +185,12 @@ Le bundle inclut donc automatiquement un partial surchargeable `@BnineFiles/part
 {% elseif _iframe_context == 'crop' %}
     <script src="{{ asset('build/cropper.js') }}"></script>
     {# ... etc ... #}
+{% elseif _iframe_context == 'gallery' %}
+    {# libs de la galerie en iframe #}
 {% endif %}
 ```
 
-Le partial reçoit la variable `_iframe_context` qui vaut `'upload'` ou `'crop'` selon le template qui l'inclut.
+Le partial reçoit la variable `_iframe_context` qui vaut `'upload'`, `'crop'` ou `'gallery'` selon le template qui l'inclut.
 
 ### Alternative : surcharger le template complet
 

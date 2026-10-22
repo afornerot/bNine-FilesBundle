@@ -18,7 +18,7 @@
       (par exemple pour pointer vers ses assets buildés via Webpack/AssetMapper).
 
     Variables disponibles :
-        - _iframe_context : 'upload' | 'crop' (selon le template qui inclut le partial)
+        - _iframe_context : 'upload' | 'crop' | 'gallery' (selon le template qui inclut le partial)
 
     Utilisation :
         {{ include('@BnineFiles/partials/_iframe_assets.html.twig',
@@ -38,6 +38,13 @@
     <script src="{{ asset('bundles/bninefiles/lib/js/dropzone.min.js') }}"></script>
     <script src="{{ asset('bundles/bninefiles/js/bninefiles.js') }}"></script>
     <script src="{{ asset('bundles/bninefiles/js/bninefiles-constants.js') }}"></script>
+{% elseif _iframe_context == 'gallery' %}
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/bootstrap.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/fontawesome.min.css') }}">
+    <link rel="stylesheet" href="{{ asset('bundles/bninefiles/css/bninefiles.css') }}">
+    <script src="{{ asset('bundles/bninefiles/lib/js/jquery.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/lib/js/bootstrap.bundle.min.js') }}"></script>
+    <script src="{{ asset('bundles/bninefiles/js/bninefiles.js') }}"></script>
 {% elseif _iframe_context == 'crop' %}
     <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ asset('bundles/bninefiles/lib/css/fontawesome.min.css') }}">
