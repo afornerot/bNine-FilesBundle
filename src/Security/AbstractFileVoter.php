@@ -3,6 +3,7 @@
 namespace Bnine\FilesBundle\Security;
 
 use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
+use Symfony\Component\Security\Core\Authorization\Voter\Vote;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 abstract class AbstractFileVoter extends Voter
@@ -11,7 +12,7 @@ abstract class AbstractFileVoter extends Voter
     public const EDIT = 'edit';
     public const DELETE = 'delete';
 
-    protected function supports(string $attribute, $subject): bool
+    protected function supports(string $attribute, mixed $subject): bool
     {
         // Le subject doit être un tableau [domain, id]
         return in_array($attribute, [self::VIEW, self::EDIT, self::DELETE])
@@ -25,7 +26,7 @@ abstract class AbstractFileVoter extends Voter
 
     abstract protected function canDelete(string $domain, $id, TokenInterface $token): bool;
 
-    protected function voteOnAttribute(string $attribute, $subject, TokenInterface $token): bool
+    protected function voteOnAttribute(string $attribute, mixed $subject, TokenInterface $token, ?Vote $vote = null): bool
     {
         [$domain, $id] = $subject;
 
