@@ -164,3 +164,32 @@ window.BnineModalClose = BnineModalClose;
 window.bnineSetActiveWidgetId = function (id) {
     _bnineActiveWidgetId = id;
 };
+
+// Construit l'URL publique d'un fichier, en miroir de la fonction Twig
+// bninefile() : memes regles, memes priorites de test.
+// Utile quand un template doit construire le src dans du JS (previsualisation
+// apres upload, par exemple) sans dupliquer la logique.
+window.BnineFileUrl = function (value) {
+    if (!value) return '';
+    if (/^https?:\/\//.test(value)) return value;
+    if (value.indexOf('/bninefiles/') === 0) return value;
+    if (value.indexOf('bundles/') === 0) return '/' + value;
+    if (value.indexOf('uploads/') === 0) return '/' + value;
+    if (value.indexOf('**public**/') === 0) return '/' + value.substring(11);
+    if (value.charAt(0) === '/') return value;
+
+    // Format normalise "domain/id/path" : l'id est toujours numerique
+    // (toutes les routes du bundle declarant {id} en int). Exiger un id
+    // numerique evite de prendre un chemin statique de l'application
+    // (ex. "medias/avatar/admin.jpg") pour un chemin du bundle.
+    var idx1 = value.indexOf('/');
+    var idx2 = idx1 < 0 ? -1 : value.indexOf('/', idx1 + 1);
+    if (idx1 > 0 && idx2 > idx1 && /^[0-9]+$/.test(value.substring(idx1 + 1, idx2))) {
+        var domain = value.substring(0, idx1);
+        var id = value.substring(idx1 + 1, idx2);
+        var path = value.substring(idx2 + 1);
+        return '/bninefiles/image/' + domain + '/' + id + '?path=' + encodeURIComponent(path);
+    }
+
+    return '/' + value;
+};

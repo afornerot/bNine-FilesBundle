@@ -75,9 +75,13 @@ class BnineFileExtension extends AbstractExtension
             return $this->prefix($value);
         }
 
-        // Format normalisé "domain/id/path" : on extrait domain, id et path.
+        // Format normalisé "domain/id/path" : l'id est toujours numérique
+        // (toutes les routes du bundle déclarent {id} en int). Exiger un id
+        // numérique évite de prendre un chemin statique de l'application
+        // (ex. "medias/avatar/admin.jpg") pour un chemin du bundle, ce qui
+        // produisait /bninefiles/image/medias/avatar/... et un 404.
         $parts = explode('/', $value, 3);
-        if (count($parts) === 3 && '' !== $parts[0] && '' !== $parts[1]) {
+        if (count($parts) === 3 && '' !== $parts[0] && '' !== $parts[1] && ctype_digit($parts[1])) {
             [$domain, $id, $path] = $parts;
 
             return $this->prefix('/bninefiles/image/'.$domain.'/'.$id.'?path='.rawurlencode($path));
