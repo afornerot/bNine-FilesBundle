@@ -94,6 +94,11 @@ class IconUploadType extends AbstractType
         $view->vars['icon_endpoint'] = $options['icon_endpoint'];
         $view->vars['icon_label'] = $options['icon_label'];
         $view->vars['preview_max_height'] = (int) $options['preview_max_height'];
+        // Expose l option au theme Twig : sans cette ligne, le theme retombe
+        // sur sa valeur par defaut (medias/icon/icon_pin.png), que l'app hote
+        // n a pas forcement, et le clear de la preview demande un fichier
+        // inexistant.
+        $view->vars['icon_empty_preview'] = $options['icon_empty_preview'];
         $view->vars['img_class'] = $options['img_class'];
         $view->vars['img_class_replace'] = (bool) $options['img_class_replace'];
     }
